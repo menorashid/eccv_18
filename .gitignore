@@ -39,6 +39,6 @@ Thumbs.db
 #pytorch#
 *.pth
 *.pt
-./papers
+papers
 *.sublime-project
 *.sublime-workspace
