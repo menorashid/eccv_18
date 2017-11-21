@@ -10,24 +10,14 @@ from torch.optim import lr_scheduler
 from torch.autograd import Variable
 import numpy as np
 import torchvision
-from torchvision import datasets, models, transforms
+from torchvision import datasets, transforms
+import models
 import matplotlib.pyplot as plt
 import time
 import os
 import h5py
 import itertools
 
-
-def get_alexnet():
-    model_ft = models.alexnet(pretrained=True)
-    new_classifier = list(model_ft.classifier.children())
-    new_classifier.pop()
-    new_layer = nn.Linear(4096,2)
-    torch.nn.init.xavier_normal(list(new_layer.parameters())[0])
-    torch.nn.init.constant(list(new_layer.parameters())[1],0.)
-    new_classifier.append(new_layer)
-    model_ft.classifier = nn.Sequential(*new_classifier)
-    return model_ft
 
 def get_new_batch(train_files_iterator, data_transformer, batch_size):
     all_data = []
@@ -107,13 +97,17 @@ def train_model(out_dir_train,
 
     torch.cuda.device(0)
     iter_begin = 0
-    model = get_alexnet().cuda()
+
+    network = models.get('alexnet')
+
+    model = network.model.cuda()
+    print model
+    print network.get_lr_list(lr)
+    # get_alexnet().cuda()
     model.train(True)
     criterion = nn.CrossEntropyLoss(weight = torch.FloatTensor(class_weights).cuda())
     
-    optimizer = optim.SGD([{'params': model.features.parameters(), 'lr': lr[0]}]
-            +[{'params': model.classifier[index].parameters(), 'lr': lr[1]} for index in range(len(model.classifier)-1)]
-            +[{'params': model.classifier[-1].parameters(), 'lr': lr[2]}]
+    optimizer = optim.SGD(network.get_lr_list(lr)
             , lr=0, momentum=0.9)
 
     if dec_after is not None:
@@ -122,7 +116,6 @@ def train_model(out_dir_train,
 
     random.shuffle(train_files)
     train_files_iterator = itertools.cycle(train_files)    
-    
     test_files_iterator = itertools.cycle(test_files)    
     
 
@@ -175,7 +168,7 @@ def train_model(out_dir_train,
             out_file = os.path.join(out_dir_train,'model_'+str(num_iter)+'.pt')
             print 'saving',out_file
             torch.save(model,out_file)
-            # save here
+            
 
 def test_model(out_dir_train,
                 model_num,
@@ -272,6 +265,7 @@ def main():
 
     out_dir_train_meta = '../experiments/alexnet_'+'_'.join([str(val) for val in [num_epochs,dec_after]+lr])
     util.mkdir(out_dir_train_meta)
+
     for split_num in range(num_splits):
         out_dir_train = os.path.join(out_dir_train_meta,'split_'+str(split_num))
         train_file = os.path.join(split_dir,'train_'+str(split_num)+'.txt')
