@@ -18,7 +18,8 @@ import os
 import h5py
 import itertools
 import dataset
-import samplers
+import glob
+import sklearn.metrics
 
 def get_class_weights(train_files):
     classes = [int(line_curr.split(' ')[1]) for line_curr in train_files]
@@ -42,7 +43,7 @@ def train_model(out_dir_train,
                 disp_after = 1,
                 plot_after = 10,
                 test_after = 1,
-                lr = 0.0001,dec_after = 100):
+                lr = 0.0001,dec_after = 100, model_name = 'alexnet'):
 
     util.mkdir(out_dir_train)
     log_file = os.path.join(out_dir_train,'log.txt')
@@ -77,7 +78,7 @@ def train_model(out_dir_train,
     torch.cuda.device(0)
     iter_begin = 0
 
-    network = models.get('alexnet')
+    network = models.get(model_name)
 
     model = network.model.cuda()
     model.train(True)
@@ -92,6 +93,13 @@ def train_model(out_dir_train,
 
         for num_iter_train,batch in enumerate(train_dataloader):
             
+            # print batch['image'].shape,torch.min(batch['image']),torch.max(batch['image'])
+            # im = np.transpose(batch['image'][0].numpy(),(1,2,0))
+            # im = batch['image'][0].numpy()
+                
+            # print im.shape
+            # scipy.misc.imsave('../scratch/check.jpg',im)
+            # raw_input()
             data = Variable(batch['image'].cuda())
             labels = Variable(torch.LongTensor(batch['label']).cuda())
             optimizer.zero_grad()
@@ -215,16 +223,16 @@ def test_model(out_dir_train,
         
     predictions = np.concatenate(predictions)
     labels_all = np.concatenate(labels_all)
-    
-    accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
-    str_display = 'accuracy: %.4f' %(accuracy)
+    accuracy = sklearn.metrics.f1_score(labels_all, predictions)
+    # accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+    str_display = 'f1: %.4f' %(accuracy)
     print str_display
     log_arr.append(str_display)
     
     util.writeFile(log_file, log_arr)
     
 
-def main():
+def ft_alexnet(pre_str=None):
 
 
     data_dir_meta = '../data/horse_51'
@@ -236,19 +244,26 @@ def main():
     # visualize.writeHTMLForFolder(data_dir_meta)
     # return
 
-    num_epochs = 20
-    save_after = 20
+    num_epochs = 30
+    save_after = 5
     disp_after = 1
     plot_after = 10
     test_after = 1
-    lr = [0, 0.00001,0.0001]
-    dec_after = 10
+    lr = [0, 0.00005,0.0005]
+    dec_after = 30
     batch_size = None
     batch_size_val = None
+    num_epochs_test = num_epochs-1
+    # num_epochs_test = 25
 
-    out_dir_train_meta = '../experiments/alexnet_'+'_'.join([str(val) for val in [os.path.split(split_dir)[1],num_epochs,dec_after]+lr])
+    if pre_str is None:
+        out_dir_train_meta = '../experiments/alexnet_5_'+'_'.join([str(val) for val in [os.path.split(split_dir)[1],num_epochs,dec_after]+lr])
+    else:
+        out_dir_train_meta = '../experiments/'+'_'.join([str(val) for val in [pre_str,os.path.split(split_dir)[1],num_epochs,dec_after]+lr])
     util.mkdir(out_dir_train_meta)
 
+    num_epochs = 50
+    dec_after = 50
     for split_num in range(num_splits):
         out_dir_train = os.path.join(out_dir_train_meta,'split_'+str(split_num))
         train_file = os.path.join(split_dir,'train_'+str(split_num)+'.txt')
@@ -287,14 +302,141 @@ def main():
                     dec_after = dec_after)
 
         test_model(out_dir_train,
-                    num_epochs-1,
+                    num_epochs_test,
                     train_file,
                     test_file,
                     data_transforms,
                     batch_size_val = batch_size_val
                     )
         
+def ft_horse_alexnet(pre_str=None):
+
+
+    data_dir_meta = '../data/horse_51'
+    # split_dir = os.path.join(data_dir_meta,'train_test_split')
+    # num_splits = 5
+
+    split_dir = os.path.join(data_dir_meta,'train_test_split_horse_based')
+    num_splits = 6
+    # visualize.writeHTMLForFolder(data_dir_meta)
+    # return
+
+    num_epochs = 30
+    save_after = 5
+    disp_after = 1
+    plot_after = 10
+    test_after = 1
+    lr = [0, 0.00005,0.0005]
+    dec_after = 30
+    batch_size = None
+    batch_size_val = None
+    num_epochs_test = num_epochs-1
+    # num_epochs_test = 26
+
+    if pre_str is None:
+        out_dir_train_meta = '../experiments/horse_alexnet_'+'_'.join([str(val) for val in [os.path.split(split_dir)[1],num_epochs,dec_after]+lr])
+    else:
+        out_dir_train_meta = '../experiments/'+'_'.join([str(val) for val in [pre_str,os.path.split(split_dir)[1],num_epochs,dec_after]+lr])
+    util.mkdir(out_dir_train_meta)
+
+    for split_num in range(num_splits):
+        out_dir_train = os.path.join(out_dir_train_meta,'split_'+str(split_num))
+        train_file = os.path.join(split_dir,'train_'+str(split_num)+'.txt')
+
+
+        val_file = os.path.join(split_dir,'test_'+str(split_num)+'.txt')
+        test_file = os.path.join(split_dir,'test_'+str(split_num)+'.txt')
+
+        data_transforms = {
+            'train': transforms.Compose([
+                transforms.Scale([256,256]),
+                transforms.RandomSizedCrop(227),
+                transforms.RandomHorizontalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize([0.]*3, [1./255.]*3),
+                transforms.Normalize([122, 117, 104], [1.]*3),    
+                lambda x: x[[2,1,0],:,:]
+            ]),
+            'val': transforms.Compose([
+                transforms.Scale([227,227]),
+                transforms.ToTensor(),
+                transforms.Normalize([0.]*3, [1./255.]*3),
+                transforms.Normalize([122, 117, 104], [1.]*3),    
+                lambda x: x[[2,1,0],:,:]
+            ]),
+        }
+
+
+        train_model(out_dir_train,
+                    train_file,
+                    test_file,
+                    data_transforms,
+                    num_epochs = num_epochs,
+                    save_after = save_after,
+                    disp_after = disp_after,
+                    plot_after = plot_after,
+                    test_after = test_after,
+                    lr = lr,
+                    batch_size = batch_size,
+                    batch_size_val = batch_size_val,
+                    dec_after = dec_after,model_name='horse_alexnet')
+
+        test_model(out_dir_train,
+                    num_epochs_test,
+                    train_file,
+                    test_file,
+                    data_transforms,
+                    batch_size_val = batch_size_val
+                    )
+        
+def main():
+    # ft_horse_alexnet()
+    pre_pre_str = 'horse_alexnet_'
+    # pre_pre_str = 'alexnet_'
+    for rep in range(5):
+        print 'REP NO',rep
+        ft_horse_alexnet(pre_pre_str+str(rep))
+        # ft_alexnet(pre_pre_str+str(rep))
+
+    # return 
+    meta_exp_dir = '../experiments'
+    # all_exp_dirs = glob.glob(os.path.join(meta_exp_dir,'*'))
+    # all_exp_dirs = all_exp_dirs+glob.glob(os.path.join(meta_exp_dir,'horse_based','*'))
+    # all_dirs = ha_exp_dirs+a_exp_dirs
+    # all_exp_dirs = [os.path.join(meta_exp_dir,str_curr+'_train_test_split_horse_based_20_20_0_1e-05_0.0001') for str_curr in ['alexnet','horse_alexnet']]
+    all_exp_dirs = glob.glob(os.path.join(meta_exp_dir,pre_pre_str+'*_train_test_split_horse_based_30_30*'))
     
+    for model_num in [29]:
+        rep_accuracy = []
+        for dir_curr in all_exp_dirs:
+            accuracy =[]
+            splits = list(glob.glob(os.path.join(dir_curr,'split_*')))
+            if len(splits)<6:
+                continue
+
+            for split_dir in glob.glob(os.path.join(dir_curr,'split_*')):
+                # print split_dir
+                result_dirs = glob.glob(os.path.join(split_dir,'results_model_'+str(model_num)))
+                # if len(result_dirs)==0:
+                #     continue
+                # result_dirs.sort()
+                # result_dirs = [res_dir_curr for res_dir_curr in result_dirs if os.path.exists(os.path.join(res_dir_curr,'log.txt'))]
+                # if len(result_dirs)>1:
+                #     result_dir = result_dirs[0]
+                # else: 
+                result_dir = result_dirs[-1]
+                accuracy_curr = util.readLinesFromFile(os.path.join(result_dir,'log.txt'))[-1].split(' ')[-1]
+                # print accuracy_curr
+                accuracy.append(float(accuracy_curr))
+            rep_accuracy.append(np.mean(accuracy))
+            # print dir_curr,len(accuracy),np.mean(accuracy)
+        print model_num, np.mean(rep_accuracy)
+
+
+
+        
+
+
 
 
 if __name__=='__main__':

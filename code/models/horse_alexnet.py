@@ -156,10 +156,10 @@ class AlexNet_Horse(nn.Module):
 
 class Network:
     def __init__(self):
-        model = load_lua('../../data/pretrained_models/horse_tps_localization_minus_tps.t7')
+        model = load_lua('../data/pretrained_models/horse_tps_localization_minus_tps.t7')
         model_old = model.listModules()[1:]
-        for idx_layer_curr,layer_curr in enumerate(model_old):
-            print idx_layer_curr, layer_curr
+        # for idx_layer_curr,layer_curr in enumerate(model_old):
+        #     print idx_layer_curr, layer_curr
         # print nn.AvgPool3d
         
         model_py = AlexNet_Horse()
@@ -168,16 +168,16 @@ class Network:
                 param.data = torch.FloatTensor(model_old[idx].parameters()[0][idx_param])
             
         for idx in range(5):
-            for idx_param,param in enumerate(model_py.features[idx].parameters()):
-                print 'BEF',np.min(param.data.numpy()),np.max(param.data.numpy())
+            # for idx_param,param in enumerate(model_py.features[idx].parameters()):
+            #     print 'BEF',np.min(param.data.numpy()),np.max(param.data.numpy())
             
             for idx_param,param in enumerate(model_py.classifier[idx].parameters()):
                 param.data = torch.FloatTensor(model_old[19+idx].parameters()[0][idx_param])
             
-            for idx_param,param in enumerate(model_py.features[idx].parameters()):
-                print 'AFT',np.min(param.data.numpy()),np.max(param.data.numpy())
+            # for idx_param,param in enumerate(model_py.features[idx].parameters()):
+            #     print 'AFT',np.min(param.data.numpy()),np.max(param.data.numpy())
             
-        print model_py
+        # print model_py
         im = torch.FloatTensor(np.zeros((10,3,227,227)))
         # print im.shape
         out = model_py.forward(Variable(im))
@@ -192,6 +192,6 @@ class Network:
         # .shape
 
 
-net = Network()
-print net.model
-print net.get_lr_list([0,0.01,0.001])
+# net = Network()
+# print net.model
+# print net.get_lr_list([0,0.01,0.001])
