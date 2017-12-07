@@ -197,33 +197,36 @@ def main():
                 regularization_scale=args.regularization_scale,
                 cuda_enabled=args.cuda)
     
-    if args.cuda:
-        print('Utilize GPUs for computation')
-        print('Number of GPU available', torch.cuda.device_count())
-        model.cuda()
-        cudnn.benchmark = True
-        model = torch.nn.DataParallel(model)
-        # print (model)
+    print (model)
+
+
+    # if args.cuda:
+    #     print('Utilize GPUs for computation')
+    #     print('Number of GPU available', torch.cuda.device_count())
+    #     model.cuda()
+    #     cudnn.benchmark = True
+    #     model = torch.nn.DataParallel(model)
+    #     # print (model)
         
 
-    optimizer = optim.Adam(model.parameters(), lr=args.lr)
+    # optimizer = optim.Adam(model.parameters(), lr=args.lr)
 
-    if not args.is_testing:
-        # Train and test
-        for epoch in range(1, args.epochs + 1):
-            previous_loss = train(model, train_loader, optimizer, epoch)
-            test(model, test_loader)
-            utils.checkpoint({
-                'epoch': epoch + 1,
-                'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict()
-            }, epoch)
+    # if not args.is_testing:
+    #     # Train and test
+    #     for epoch in range(1, args.epochs + 1):
+    #         previous_loss = train(model, train_loader, optimizer, epoch)
+    #         test(model, test_loader)
+    #         utils.checkpoint({
+    #             'epoch': epoch + 1,
+    #             'state_dict': model.state_dict(),
+    #             'optimizer': optimizer.state_dict()
+    #         }, epoch)
 
-            if previous_loss < args.loss_threshold:
-                break
-    else:
-        model.load_state_dict(torch.load(args.weights)['state_dict'])
-        test(model, test_loader)
+    #         if previous_loss < args.loss_threshold:
+    #             break
+    # else:
+    #     model.load_state_dict(torch.load(args.weights)['state_dict'])
+    #     test(model, test_loader)
 
 
 

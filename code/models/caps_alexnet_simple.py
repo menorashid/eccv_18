@@ -1,11 +1,6 @@
-"""CapsNet Architecture
-
-PyTorch implementation of CapsNet in Sabour, Hinton et al.'s paper
-Dynamic Routing Between Capsules. NIPS 2017.
-https://arxiv.org/abs/1710.09829
-
-Author: Cedric Chee
-"""
+from torchvision import models
+import torch.nn as nn
+from capsule_layer import CapsuleLayer
 
 import torch
 import torch.nn as nn
@@ -15,6 +10,7 @@ from conv_layer import ConvLayer
 from capsule_layer import CapsuleLayer
 import utils
 
+import numpy as np
 
 class Net(nn.Module):
     """
@@ -23,64 +19,66 @@ class Net(nn.Module):
 
     def __init__(self, num_conv_in_channel, num_conv_out_channel, num_primary_unit, primary_unit_size,
                  num_classes, output_unit_size, num_routing,
-                 use_reconstruction_loss, regularization_scale, cuda_enabled):
+                 use_reconstruction_loss, regularization_scale, cuda_enabled,caps_channels = 32, kernel_size = 9, stride = 2):
         """
         In the constructor we instantiate one ConvLayer module and two CapsuleLayer modules
         and assign them as member variables.
         """
-
-        print 'num_conv_in_channel,', num_conv_in_channel
-        print 'num_conv_out_channel,', num_conv_out_channel
-        print 'num_primary_unit,', num_primary_unit
-        print 'primary_unit_size,', primary_unit_size
-        print 'num_classes,', num_classes
-        print 'output_unit_size,', output_unit_size
-        print 'num_routing,', num_routing
-        print 'use_reconstruction_loss,', use_reconstruction_loss
-        print 'regularization_scale,', regularization_scale
-        print 'cuda_enabled,', cuda_enabled
         super(Net, self).__init__()
 
         self.cuda_enabled = cuda_enabled
 
         # Configurations used for image reconstruction.
         self.use_reconstruction_loss = use_reconstruction_loss
-        self.image_width = 28 # MNIST digit image width
-        self.image_height = 28 # MNIST digit image height
-        self.image_channel = 1 # MNIST digit image channel
+        self.image_width = 224 # MNIST digit image width
+        self.image_height = 224 # MNIST digit image height
+        self.image_channel = 3 # MNIST digit image channel
         self.regularization_scale = regularization_scale
 
         # Layer 1: Conventional Conv2d layer
-        self.conv1 = ConvLayer(in_channel=num_conv_in_channel,
-                               out_channel=num_conv_out_channel,
-                               kernel_size=9)
+        # self.conv1 = ConvLayer(in_channel=num_conv_in_channel,
+        #                        out_channel=num_conv_out_channel,
+        #                        kernel_size=9)
+
+
+        features = list(models.alexnet(pretrained=True).features)[:-3]
+        # features.pop()
+        # features.pop()
+        # features.pop()
+        self.conv1 = nn.Sequential(*features)
+        
+
+
+        # ConvLayer(in_channel=num_conv_in_channel,
+        #                        out_channel=num_conv_out_channel,
+        #                        kernel_size=9)
 
         # PrimaryCaps
         # Layer 2: Conv2D layer with `squash` activation
-        print ('n_channel=',num_conv_out_channel)
-        print ('num_unit=',num_primary_unit)
-        print ('unit_size=',primary_unit_size)
-        print ('use_routing=',False)
-        print ('num_routing=',num_routing)
-        print ('cuda_enabled=',cuda_enabled)
+        # print ('n_channel=',num_conv_out_channel)
+        # print ('num_unit=',num_primary_unit)
+        # print ('unit_size=',primary_unit_size)
+        # print ('use_routing=',False)
+        # print ('num_routing=',num_routing)
+        # print ('cuda_enabled=',cuda_enabled)
         self.primary = CapsuleLayer(in_unit=0,
                                     in_channel=num_conv_out_channel,
                                     num_unit=num_primary_unit,
                                     unit_size=primary_unit_size, # capsule outputs
                                     use_routing=False,
                                     num_routing=num_routing,
-                                    cuda_enabled=cuda_enabled)
+                                    cuda_enabled=cuda_enabled,caps_channels = caps_channels,kernel_size=kernel_size, stride = stride)
 
         # DigitCaps
         # Final layer: Capsule layer where the routing algorithm is.
-        print ('SECOND')
-        print ('in_unit=',num_primary_unit)
-        print ('in_channel=',primary_unit_size)
-        print ('num_unit=',num_classes)
-        print ('unit_size=',output_unit_size)
-        print ('use_routing=',True)
-        print ('num_routing=',num_routing)
-        print ('cuda_enabled=',cuda_enabled)
+        # print ('SECOND')
+        # print ('in_unit=',num_primary_unit)
+        # print ('in_channel=',primary_unit_size)
+        # print ('num_unit=',num_classes)
+        # print ('unit_size=',output_unit_size)
+        # print ('use_routing=',True)
+        # print ('num_routing=',num_routing)
+        # print ('cuda_enabled=',cuda_enabled)
         
 
         self.digits = CapsuleLayer(in_unit=num_primary_unit,
@@ -207,3 +205,96 @@ class Net(nn.Module):
             recon_error = recon_error.mean()
 
         return recon_error
+
+
+
+class Network:
+    def __init__(self):
+        # model_ft = models.alexnet(pretrained=True)
+        
+        # new_features = list(model_ft.features.children())
+        # new_features.pop()
+
+        # new_classifier = list(model_ft.classifier.children())
+        # new_classifier.pop()
+        # new_layer = nn.Linear(4096,2)
+        # nn.init.xavier_normal(list(new_layer.parameters())[0])
+        # nn.init.constant(list(new_layer.parameters())[1],0.)
+        # new_classifier.append(new_layer)
+        # model_ft.classifier = nn.Sequential(*new_classifier)
+        num_conv_in_channel = 1
+        num_conv_out_channel = 256
+        num_primary_unit = 8
+        primary_unit_size = 1152
+        # 9216
+        num_classes = 2
+        output_unit_size = 32
+        num_routing = 3
+        use_reconstruction_loss = False
+        regularization_scale = 0.0005
+        cuda_enabled = True
+        kernel_size = 3
+
+
+        self.model = Net(num_conv_in_channel, num_conv_out_channel, num_primary_unit, primary_unit_size,
+                 num_classes, output_unit_size, num_routing,
+                 use_reconstruction_loss, regularization_scale, cuda_enabled,kernel_size = kernel_size)
+
+        alexnet = models.alexnet(pretrained=True)
+        layer_curr = list(alexnet.features)[-3]
+        weight,bias = [param.data.numpy() for param in layer_curr.parameters()]
+        weights_biases = [np.split(weight, 8, axis=0),np.split(bias, 8, axis=0)]
+        for idx_model_curr,module_curr in enumerate(list(self.model.primary.conv_units)):
+            for idx_param,param in enumerate(module_curr.parameters()):
+                param.data = torch.FloatTensor(weights_biases[idx_param][idx_model_curr])
+        
+
+
+
+    def get_lr_list(self, lr):
+        lr_list= [{'params': self.model.conv1.parameters(), 'lr': lr[0]}]\
+        +[{'params': self.model.primary.parameters(), 'lr': lr[1]}]\
+        +[{'params': self.model.digits.parameters(), 'lr': lr[2]}]
+        return lr_list
+
+def main():
+    network = Network()
+    # alexnet = models.alexnet(pretrained=True)
+    # layer_curr = list(alexnet.features)[-3]
+
+    # weight,bias = [param.data.numpy() for param in layer_curr.parameters()]
+    # # print weight.shape,bias.shape 
+    # weights_biases = [np.split(weight, 8, axis=0),np.split(bias, 8, axis=0)]
+    
+        
+    # # print biases
+
+    # # #split weight = weight 
+
+    # # # for param in layer_curr.parameters():
+    # # #     print param.data.shape
+
+    # for idx_model_curr,module_curr in enumerate(list(network.model.primary.conv_units)):
+    #     for idx_param,param in enumerate(module_curr.parameters()):
+    #         param.data = torch.FloatTensor(weights_biases[idx_param][idx_model_curr])
+            # print torch.min(list(list(network.model.primary.conv_units)[-1].parameters())[-1]),torch.max(list(list(network.model.primary.conv_units)[-1].parameters())[-1])
+
+    # # network.model
+    # print torch.min(list(list(network.model.primary.conv_units)[-1].parameters())[-1]),torch.max(list(list(network.model.primary.conv_units)[-1].parameters())[-1])
+    network.model = network.model.cuda()
+    print network.model
+    lr_list = network.get_lr_list([0,0.001,0.001])
+    print lr_list
+
+    data = Variable(torch.Tensor(np.zeros((10,3,224,224)))).cuda()
+    output = network.model(data)
+    print output.data.shape
+    # output = network.model.primary(output)
+    # # data = Variable(torch.Tensor(np.zeros((10,1,28,28)))).cuda()
+    # # output = network.model(data)
+    # print output.data.shape
+    
+
+
+if __name__=='__main__':
+    main()
