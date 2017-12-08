@@ -193,7 +193,7 @@ def main():
     # out_dir_meta = '../experiments/bl_khorrami_ck_96_nobn_pixel_augment_255_range'
     # range_splits = [0,1,2,3,4,5]
     out_dir_meta = '../experiments/bl_khorrami_ck_96_nobn_pixel_augment_255_range_trans_fix'
-    range_splits = range(7,10)
+    range_splits = range(6,10)
     print range_splits
     
     # range(10)
@@ -220,8 +220,8 @@ def main():
         plot_after = 10
         test_after = 1
         
-        # lr = [0.01, 0.01]
-        lr = [0.0001,0.0001]
+        lr = [0.001, 0.001]
+        # lr = [0.0001,0.0001]
         dec_after = 300 
         model_name = 'khorrami_ck_96'
         criterion = nn.CrossEntropyLoss()
@@ -232,18 +232,20 @@ def main():
         # model_file = None
         # epoch_start = 0
         # lr_dir_train = lr
+        
         lr_dir_train = [0.01, 0.01]
-        strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr_dir_train[0],lr_dir_train[1],'100_dec']])
+        # strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr_dir_train[0],lr_dir_train[1],'100_dec']])
+        strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr_dir_train[0],lr_dir_train[1]]])
         out_dir_train = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append)
         print out_dir_train
         
         
-        epoch_start = 301
+        epoch_start = 401
         strs_append = '_'.join([str(val) for val in [400,300,lr_dir_train[0],lr_dir_train[1]]])
         out_dir_res = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append)
         # strs_append = '_'.join([str(val) for val in [250,200,lr_dir_train[0],lr_dir_train[1]]])
         # model_file = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append,'model_200.pt')
-        model_file = os.path.join(out_dir_res,'model_300.pt')
+        model_file = os.path.join(out_dir_res,'model_399.pt')
         
         
         
