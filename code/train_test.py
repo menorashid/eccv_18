@@ -48,10 +48,11 @@ def train_model(out_dir_train,
 
     network = models.get(model_name)
     # data_transforms = network.data_transforms
-    if model_file is None:
-        model = network.model
-    else:
-        model = torch.load(model_file)
+    if model_file is not None:
+    #     model = network.model
+    # else:
+        network.model = torch.load(model_file)
+    model = network.model
 
     # train_data = dataset(train_file,data_transforms['train'])
     # test_data = dataset(test_file,data_transforms['val'])

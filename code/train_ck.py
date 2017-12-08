@@ -81,6 +81,7 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
         alpha_range = [0.7,1.4]
         a_range = [0.25,4]
         b_range = [0.7, 1.4]
+        # b_range = [0.5,1]
         c_range = [-0.1,0.1]
         im_size = 96
         # print 'bef',np.min(im), np.max(im)
@@ -139,8 +140,9 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
 
         if 'scale_translate' in list_of_to_dos:
             alpha = np.random.random()*(alpha_range[1]-alpha_range[0]) + alpha_range[0]
-            delta = (alpha-1)*im_size
+            delta = abs(alpha-1)*im_size
             delta_range = [-1*delta/2.,delta/2.]
+            assert delta_range[0]<=delta_range[1]
 
             im_rs = scipy.misc.imresize(im, alpha)
             
@@ -187,49 +189,63 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
         return im
 
 def main():
-    under_bed()
-    return
-    out_dir_meta = '../experiments/bl_khorrami_ck_96'
-    util.mkdir(out_dir_meta)
 
-    for split_num in range(8,10):
-    # range(5)+[6,7]:
+    # out_dir_meta = '../experiments/bl_khorrami_ck_96_nobn_pixel_augment_255_range'
+    # range_splits = [0,1,2,3,4,5]
+    out_dir_meta = '../experiments/bl_khorrami_ck_96_nobn_pixel_augment_255_range_trans_fix'
+    range_splits = range(7,10)
+    print range_splits
+    
+    # range(10)
+    
+    util.mkdir(out_dir_meta)
+    all_accuracy = []
+
+    for split_num in range_splits:
         
         train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
         test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
         mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
         std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
 
-
-
-        batch_size = 64
-        batch_size_val = 64
-        num_epochs = 200
-        save_after = 10
+        list_of_to_dos = ['flip','rotate','scale_translate','pixel_augment']
+        mean_im = scipy.misc.imread(mean_file).astype(np.float32)
+        std_im = scipy.misc.imread(std_file).astype(np.float32)
+    
+        batch_size = 128
+        batch_size_val = None
+        num_epochs = 500
+        save_after = 100
         disp_after = 1
         plot_after = 10
         test_after = 1
         
-        lr = [0.001, 0.001]
-        dec_after = 100 
+        # lr = [0.01, 0.01]
+        lr = [0.0001,0.0001]
+        dec_after = 300 
         model_name = 'khorrami_ck_96'
         criterion = nn.CrossEntropyLoss()
         gpu_id = 0
-        num_workers = 0
+        num_workers = 2
         model_num = num_epochs-1
 
         # model_file = None
         # epoch_start = 0
         # lr_dir_train = lr
-
         lr_dir_train = [0.01, 0.01]
-        epoch_start = 100
-        strs_append = '_'.join([str(val) for val in [100,100,lr_dir_train[0],lr_dir_train[1]]])
-        model_file = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append,'model_99.pt')
-        
-        strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr_dir_train[0],lr_dir_train[1]]])
+        strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr_dir_train[0],lr_dir_train[1],'100_dec']])
         out_dir_train = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append)
         print out_dir_train
+        
+        
+        epoch_start = 301
+        strs_append = '_'.join([str(val) for val in [400,300,lr_dir_train[0],lr_dir_train[1]]])
+        out_dir_res = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append)
+        # strs_append = '_'.join([str(val) for val in [250,200,lr_dir_train[0],lr_dir_train[1]]])
+        # model_file = os.path.join(out_dir_meta,'split_'+str(split_num)+'_'+strs_append,'model_200.pt')
+        model_file = os.path.join(out_dir_res,'model_300.pt')
+        
+        
         
 
         # raw_input()
@@ -237,11 +253,13 @@ def main():
 
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
-            lambda x: augment_image(x),
+            lambda x: augment_image(x,list_of_to_dos,mean_im = mean_im,std_im = std_im),
             transforms.ToTensor(),
+            lambda x: x*255.
         ])
         data_transforms['val']= transforms.Compose([
             transforms.ToTensor(),
+            lambda x: x*255.
             ])
 
         train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
@@ -273,6 +291,13 @@ def main():
                     model_name = model_name,
                     batch_size_val = batch_size_val,
                     criterion = criterion)
+        res_dir = os.path.join(out_dir_train,'results_model_'+str(model_num))
+        log_file = os.path.join(res_dir,'log.txt')
+        accuracy = util.readLinesFromFile(log_file)[-1]
+        accuracy = float(accuracy.split(' ')[1])
+        all_accuracy.append(accuracy)
+
+    print all_accuracy,np.mean(all_accuracy),np.std(all_accuracy)
 
 
 if __name__=='__main__':
