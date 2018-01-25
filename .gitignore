@@ -47,3 +47,10 @@ animal_human_kp-master
 review
 Synopsis.txt
 Hole_finder
+writing
+simple_image_annotator
+BBox-Label-Tool
+bbox-annotator
+*.txt
+*.png
+darknet

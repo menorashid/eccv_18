@@ -28,10 +28,17 @@ def write_facs_file(in_file,out_file,facs_dir):
 		
 	util.writeFile(out_file,out_anno)
 
-			
+
 
 def main():
 	data_dir = '../data/ck_96/train_test_files'
+	train_file = os.path.join(data_dir,'train_0.txt')
+	
+	train_data = util.readLinesFromFile(train_file)
+	train_data = [int(line_curr.split(' ')[1]) for line_curr in train_data]
+	print set(train_data)
+
+	return
 	facs_anno_dir = '../data/ck_original/FACS'
 
 

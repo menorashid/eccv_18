@@ -59,7 +59,7 @@ def under_bed():
     scipy.misc.imsave(out_file_aft,image[0])
     visualize.writeHTMLForFolder(out_dir)
 
-def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean_im=None, std_im=None):
+def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean_im=None, std_im=None, im_size = 96):
         # khorrami augmentation for ck+
         # trying to get baseline results 
 
@@ -83,7 +83,7 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
         b_range = [0.7, 1.4]
         # b_range = [0.5,1]
         c_range = [-0.1,0.1]
-        im_size = 96
+        # im_size = 96
         # print 'bef',np.min(im), np.max(im)
         # print 'bef',np.min(im), np.max(im)
         
