@@ -181,29 +181,19 @@ class ConvCaps(nn.Module):
             r_hat_stack = r_hat.view(b,Bkk,Cww,1).expand(b, Bkk, Cww,16) #b,Bkk,Cww,16
 
 
-            # changing this part!!
-            # mu = torch.sum(r_hat_stack*V_s, 1, True)/sum_r_hat #b,1,Cww,16
-            # mu_stack = mu.expand(b,Bkk,Cww,16) #b,Bkk,Cww,16
-            # sigma = torch.sum(r_hat_stack*(V_s-mu_stack)**2,1,True)/sum_r_hat #b,1,Cww,16           
-            # sigma = sigma.clamp(0.01) #prevent nan since the following is a log(sigma)
-            # cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
-            # beta_a_stack = self.beta_a.view(1,self.C,1).expand(b,self.C,w*w).contiguous().view(b,1,Cww)#b,Cww
-            # a_c = torch.sigmoid(lambda_*(beta_a_stack-torch.sum(cost,3))) #b,1,Cww 
-            # mus = mu.view(b,self.C,w,w,16) #b,C,w,w,16
-            # sigmas = sigma.view(b,self.C,w,w,16) #b,C,w,w,16
-            # activations = a_c.view(b,self.C,w,w) #b,C,w,w
-            # if debug:
-            #     print 'inbetween',time.time()-t
-
             mu = torch.sum(r_hat_stack*V_s, 1, True)/sum_r_hat #b,1,Cww,16
             mu_stack = mu.expand(b,Bkk,Cww,16) #b,Bkk,Cww,16
             sigma = torch.sum(r_hat_stack*(V_s-mu_stack)**2,1,True)/sum_r_hat #b,1,Cww,16           
             sigma = sigma.clamp(0.01) #prevent nan since the following is a log(sigma)
+            cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
+            beta_a_stack = self.beta_a.view(1,self.C,1).expand(b,self.C,w*w).contiguous().view(b,1,Cww)#b,Cww
+            a_c = torch.sigmoid(lambda_*(beta_a_stack-torch.sum(cost,3))) #b,1,Cww 
             mus = mu.view(b,self.C,w,w,16) #b,C,w,w,16
             sigmas = sigma.view(b,self.C,w,w,16) #b,C,w,w,16
-            
+            activations = a_c.view(b,self.C,w,w) #b,C,w,w
             if debug:
                 print 'inbetween',time.time()-t
+
     
             if debug:
                 t = time.time()
@@ -248,13 +238,6 @@ class ConvCaps(nn.Module):
                       y_range[0]:y_range[1]] = r.data.numpy()
             if debug:
                 print 'E step',time.time()-t
-        
-        
-        # ADDED THIS
-        cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
-        beta_a_stack = self.beta_a.view(1,self.C,1).expand(b,self.C,w*w).contiguous().view(b,1,Cww)#b,Cww
-        a_c = torch.sigmoid(lambda_*(beta_a_stack-torch.sum(cost,3))) #b,1,Cww 
-        activations = a_c.view(b,self.C,w,w) #b,C,w,w
         
         mus = mus.permute(0,4,1,2,3).contiguous().view(b,self.C*16,w,w)#b,16*C,5,5
         output = torch.cat([mus,activations], 1) #b,C*17,5,5
