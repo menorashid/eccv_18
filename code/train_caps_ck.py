@@ -229,6 +229,7 @@ def main():
                 if our_data:
                     imgs = data['image']
                     labels = data['label']
+                    
                 else:
                     imgs,labels = data #b,1,28,28; #b
 
@@ -237,6 +238,7 @@ def main():
                     imgs = imgs.cuda()
                     labels = labels.cuda()
 
+                raw_input()
                 out = model(imgs,lambda_) #b,10,17
                 out_poses, out_labels = out[:,:-10],out[:,-10:] #b,16*10; b,10
                 loss = model.loss(out_labels, labels, m)
