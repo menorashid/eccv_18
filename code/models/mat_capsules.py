@@ -74,7 +74,7 @@ class Matrix_Capsule_Model(nn.Module):
         return loss
 
 class Network:
-    def __init__(self,input_size,n_classes=8,r=2):
+    def __init__(self,input_size,n_classes=8,r=1):
         # conv_layers = [[32,5,2]]
         # caps_layers = [[8,1,1],[16,3,2],[16,3,2],[16,3,2]]
 
@@ -104,22 +104,23 @@ class Network:
         
         for idx_m,m in enumerate(model.features.children()):
             print m
-            if isinstance(m, nn.Conv2d) or isinstance(m,nn.Linear):
-                nn.init.xavier_normal(m.weight.data)
-                nn.init.constant(m.bias.data,0.)
-            elif isinstance(m, Primary_Caps):
-                print 'hello primary'
-                nn.init.xavier_normal(m.pose.weight.data)
-                nn.init.constant(m.pose.bias.data,0.)
+            # if isinstance(m, nn.Conv2d) or isinstance(m,nn.Linear):
+            #     nn.init.xavier_normal(m.weight.data)
+            #     nn.init.constant(m.bias.data,0.)
+            # elif isinstance(m, Primary_Caps):
+            #     print 'hello primary'
+            #     nn.init.xavier_normal(m.pose.weight.data)
+            #     nn.init.constant(m.pose.bias.data,0.)
 
-                nn.init.xavier_normal(m.activation[0].weight.data)
-                nn.init.constant(m.activation[0].bias.data,0.)
+            #     nn.init.xavier_normal(m.activation[0].weight.data)
+            #     nn.init.constant(m.activation[0].bias.data,0.)
                 
-            elif isinstance(m, Conv_Caps):
+            # el
+            if isinstance(m, Conv_Caps):
                 print 'hello'
                 nn.init.constant(m.beta_v.data,0.)
                 nn.init.constant(m.beta_a.data,0.)
-                nn.init.xavier_normal(m.w.data)
+                # nn.init.xavier_normal(m.w.data)
                 
         self.model = model
         
@@ -188,21 +189,21 @@ def main():
     # raw_input()
     input = np.random.randn(10,1,28,28)
     # np.zeros((10,1,96,96))
-    # labels = np.array([0,1,2,3,4,5,6,7,0,1],dtype=np.int)
+    labels = np.array([0,1,2,3,4,5,6,7,0,1],dtype=np.int)
 
-    labels = np.zeros((10,),dtype=np.int)
+    # labels = np.zeros((10,),dtype=np.int)
     input = torch.Tensor(input).cuda()
     print input.shape
     input = Variable(input)
     labels = Variable(torch.Tensor(labels).cuda())
     print labels.size()
     loss_old = 100
-    loss_func = nn.CrossEntropyLoss() 
+    # loss_func = nn.CrossEntropyLoss() 
     for i in range(100):
         output = net.model(input)
         # print output
-        loss = loss_func(output,labels)
-        # net.model.spread_loss(output,labels,0.2)
+        # loss = loss_func(output,labels)
+        loss = net.model.spread_loss(output,labels,0.2)
         print i,loss.data[0]
         # if loss_old<loss.data[0]:
         #     print output_old

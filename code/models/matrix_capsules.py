@@ -92,7 +92,7 @@ class ConvCaps(nn.Module):
         self.stride = stride
         self.coordinate_add = coordinate_add
         self.transform_share = transform_share
-        self.beta_v = nn.Parameter(torch.randn(1))
+        self.beta_v = nn.Parameter(torch.randn(C,16))
         self.beta_a = nn.Parameter(torch.randn(C)) #TODO: make sure whether beta_a depend on c 
         if not transform_share:
             self.W = nn.Parameter(torch.randn(self.B, kernel,kernel,self.C, 
@@ -101,160 +101,7 @@ class ConvCaps(nn.Module):
             self.W = nn.Parameter(torch.randn(self.B, self.C, 4, 4)) #B,C,4,4
         self.iteration=iteration
         self.lambda_ = 1e-2
-        # ROUGH WORK HERE
-        # if kernel==0:
-        #     kernel = 1
-        # in_channels = 1
-        # self.kerneling_layer = nn.Conv2d(in_channels = in_channels, out_channels = kernel*kernel*in_channels, kernel_size = kernel, stride = stride)
 
-        # weight = torch.Tensor(in_channels,kernel*kernel,kernel,kernel).fill_(0)
-        # for i in range(kernel):
-        #     for j in range(kernel):
-        #         weight[:,i*kernel+j,i,j]=1
-        
-        # weight = weight.view(in_channels*kernel*kernel,1,kernel,kernel)
-        
-        # self.kerneling_layer.weight.data = weight    
-        # self.kerneling_layer.weight.requires_grad = False
-
-        # self.kerneling_layer.bias.data.fill_(0)
-        # self.kerneling_layer.bias.requires_grad = False
-        
-
-
-    # def do_batchwise_routing(self,R_all,votes_all,V_s_all,activation_all,width_in,width_out,lambda_):
-    #     use_cuda = next(self.parameters()).is_cuda
-    #     mus_b = []
-    #     activations_b = []
-    #     # b,self.B,width_in,width_in,self.C,w,w
-    #     #b,Bkk,Cww,16
-    #     # print R_all.shape
-    #     # print R_all.size(0)
-    #     w = width_out
-    #     Cww = w*w*self.C
-    #     Bkk = self.K*self.K*self.B
-
-
-    #     for b_num  in range(R_all.shape[0]):
-    #         R = R_all[b_num:b_num+1,:,:,:,:,:,:]
-    #         V_s = V_s_all[b_num:b_num+1,:,:,:]
-    #         activation = activation_all[b_num:b_num+1,:,:,:] 
-    #         votes = votes_all[ b_num:b_num+1,:,:,:,:,:,:,:,:]
-    #         b=1
-    #         for iterate in range(self.iteration):
-
-    #             if debug:
-    #                 t = time.time()
-    #             #M-step
-    #             r_s,a_s = [],[]
-    #             for typ in range(self.C):            
-    #                 for i in range(width_out):
-    #                     for j in range(width_out):
-    #                         r = R[:,:,self.stride*i:self.stride*i+self.K,  #b,B,K,K
-    #                                 self.stride*j:self.stride*j+self.K,typ,i,j]
-    #                         r = torch.from_numpy(r).float()
-    #                         r = Variable(r)
-                            
-    #                         if use_cuda:
-    #                             r = r.cuda()
-    #                         r_s.append(r)
-
-    #                         a = activation[:,:,self.stride*i:self.stride*i+self.K,
-    #                                 self.stride*j:self.stride*j+self.K] #b,B,K,K
-    #                         a_s.append(a)
-    #             if debug:
-    #                 print 'M step',time.time()-t
-                
-    #             if debug:
-    #                 t = time.time()
-    #             r_s = torch.stack(r_s,-1).view(b, Bkk, Cww) #b,Bkk,Cww
-    #             a_s = torch.stack(a_s,-1).view(b, Bkk, Cww) #b,Bkk,Cww
-    #             r_hat = r_s*a_s #b,Bkk,Cww
-
-    #             r_hat = r_hat.clamp(0.01) #prevent nan since we'll devide sth. by r_hat
-                
-
-    #             sum_r_hat = r_hat.sum(1).view(b,1,Cww,1).expand(b,1,Cww,16) #b,Cww,16
-                
-    #             r_hat_stack = r_hat.view(b,Bkk,Cww,1).expand(b, Bkk, Cww,16) #b,Bkk,Cww,16
-
-
-    #             mu = torch.sum(r_hat_stack*V_s, 1, True)/sum_r_hat #b,1,Cww,16
-    #             mu_stack = mu.expand(b,Bkk,Cww,16) #b,Bkk,Cww,16
-    #             sigma = torch.sum(r_hat_stack*(V_s-mu_stack)**2,1,True)/sum_r_hat #b,1,Cww,16           
-    #             sigma = sigma.clamp(0.01) #prevent nan since the following is a log(sigma)
-    #             cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
-    #             beta_a_stack = self.beta_a.view(1,self.C,1).expand(b,self.C,w*w).contiguous().view(b,1,Cww)#b,Cww
-    #             a_c = torch.sigmoid(lambda_*(beta_a_stack-torch.sum(cost,3))) #b,1,Cww 
-    #             mus = mu.view(b,self.C,w,w,16) #b,C,w,w,16
-    #             sigmas = sigma.view(b,self.C,w,w,16) #b,C,w,w,16
-    #             activations = a_c.view(b,self.C,w,w) #b,C,w,w
-    #             if debug:
-    #                 print 'inbetween',time.time()-t
-
-        
-    #             if debug:
-    #                 t = time.time()
-    #             #E-step
-    #             for i in range(width_in):
-    #                 #compute the x axis range of capsules c that i connect to.
-    #                 x_range = (int(max(floor((i-self.K)/self.stride)+1,0)),int(min(i//self.stride+1,width_out)))
-                    
-    #                 assert x_range[1]-x_range[0]<=self.K
-    #                 #without padding, some capsules i may not be convolutional layer catched, in mnist case, i or j == 11
-    #                 u = len(range(*x_range))
-    #                 if not u: 
-    #                     continue
-    #                 for j in range(width_in):
-    #                     y_range = (int(max(floor((j-self.K)/self.stride)+1,0)),int(min(j//self.stride+1,width_out)))
-                        
-    #                     assert y_range[1]-y_range[0]<=self.K
-
-    #                     v = len(range(*y_range))
-    #                     if not v:
-    #                         continue
-    #                     mu = mus[:,:,x_range[0]:x_range[1],y_range[0]:y_range[1],:].contiguous() #b,C,u,v,16
-    #                     sigma = sigmas[:,:,x_range[0]:x_range[1],y_range[0]:y_range[1],:].contiguous() #b,C,u,v,16 
-    #                     mu = mu.view(b,1,self.C,u,v,16).expand(b,self.B,self.C,u,v,16).contiguous()#b,B,C,u,v,16
-    #                     sigma = sigma.view(b,1,self.C,u,v,16).expand(b,self.B,self.C,u,v,16).contiguous()#b,B,C,u,v,16            
-    #                     V = []; a = []                 
-    #                     for x in range(*x_range):
-    #                         for y in range(*y_range):
-    #                             #compute where is the V_ic
-    #                             pos_x = self.stride*x - i
-    #                             pos_y = self.stride*y - j
-    #                             V.append(votes[:,:,pos_x,pos_y,:,x,y,:,:]) #b,B,C,4,4
-    #                             a.append(activations[:,:,x,y].contiguous().view(b,1,self.C).expand(b,self.B,self.C).contiguous()) #b,B,C
-    #                     V = torch.stack(V,dim=3).view(b,self.B,self.C,u,v,16) #b,B,C,u,v,16
-    #                     a = torch.stack(a,dim=3).view(b,self.B,self.C,u,v) #b,B,C,u,v
-    #                     p = torch.exp(-(V-mu)**2)/torch.sqrt(2*pi*sigma) #b,B,C,u,v,16
-    #                     p = p.prod(dim=5)#b,B,C,u,v
-    #                     p_hat = a*p  #b,B,C,u,v
-    #                     sum_p_hat = p_hat.sum(4).sum(3).sum(2) #b,B
-    #                     sum_p_hat = sum_p_hat.view(b,self.B,1,1,1).expand(b,self.B,self.C,u,v)
-    #                     r = (p_hat/sum_p_hat) #b,B,C,u,v --> R: b,B,12,12,32,5,5
-                        
-    #                     if use_cuda:
-    #                         r = r.cpu()
-    #                     R[:,:,i,j,:,x_range[0]:x_range[1],        #b,B,u,v,C
-    #                       y_range[0]:y_range[1]] = r.data.numpy()
-
-    #             # print R.shape
-    #             r_sum_temp = np.sum(np.sum(R,5,keepdims=True),6,keepdims=True)
-    #             # print r_sum_temp.shape
-    #             R = R/np.sum(np.sum(np.sum(R,4,keepdims=True),5,keepdims=True),6,keepdims=True)
-    #             # print R.shape
-    #             # raw_input()
-
-    #             if debug:
-    #                 print 'E step',time.time()-t
-    #         mus_b.append(mus)
-    #         activations_b.append(activations)
-    #     # print len(mus_b),mus_b[0].shape
-    #     mus_b = torch.cat(mus_b,dim=0)
-    #     # print mus_b.shape
-    #     activations_b = torch.cat(activations_b,dim=0)
-    #     return mus_b,activations_b
 
     def forward(self, x ):
         lambda_ = self.lambda_
@@ -315,28 +162,6 @@ class ConvCaps(nn.Module):
 
         R = np.ones([b,self.B,width_in,width_in,self.C,w,w])/Cww
         
-        #ROUGH WORK HERE
-        # R = np.zeros([b,self.B,width_in,width_in,self.C,w,w])
-        # for i in range(width_in):
-        #     x_range = (int(max(floor((i-self.K)/self.stride)+1,0)),int(min(i//self.stride+1,width_out)))
-        #     for j in range(width_in):
-        #         y_range = (int(max(floor((j-self.K)/self.stride)+1,0)),int(min(j//self.stride+1,width_out)))
-        #         num_connections = (x_range[1]-x_range[0])*(y_range[1]-y_range[0])
-        #         if num_connections>0:
-        #             vals = 1/float(num_connections)
-        #             # print i,j,num_connections,vals
-
-        #             R[:,:,i,j,:,x_range[0]:x_range[1],y_range[0]:y_range[1]]=vals
-            
-
-
-
-        # if use_cuda:
-        #     R = torch.cuda.FloatTensor(b,self.B,width_in,width_in,self.C,w,w).fill_(1)/Cww
-        # else:
-        #     R = torch.ones(b,self.B,width_in,width_in,self.C,w,w)/Cww
-            
-        # raw_input()
         V_s = votes.view(b,Bkk,Cww,16) #b,Bkk,Cww,16
         if debug:
             print 'pre_iterate',time.time()-t
@@ -386,7 +211,18 @@ class ConvCaps(nn.Module):
             mu_stack = mu.expand(b,Bkk,Cww,16) #b,Bkk,Cww,16
             sigma = torch.sum(r_hat_stack*(V_s-mu_stack)**2,1,True)/sum_r_hat #b,1,Cww,16           
             sigma = sigma.clamp(0.01) #prevent nan since the following is a log(sigma)
-            cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
+            
+
+            # print sigma.view(b,1,self.C,w,w,16).size()
+            # print self.beta_v.view(1,1,self.C,1,1,16).size()
+            added =torch.log(sigma.view(b,1,self.C,w,w,16))+self.beta_v.view(1,1,self.C,1,1,16) 
+            # print added.size()
+            added = added.view(b,1,Cww,16)
+            # print added.size()
+            # raw_input()
+            cost = added * sum_r_hat #b,1,Cww,16
+            # cost = (self.beta_v + torch.log(sigma)) * sum_r_hat #b,1,Cww,16
+
             beta_a_stack = self.beta_a.view(1,self.C,1).expand(b,self.C,w*w).contiguous().view(b,1,Cww)#b,Cww
             a_c = torch.sigmoid(lambda_*(beta_a_stack-torch.sum(cost,3))) #b,1,Cww 
             mus = mu.view(b,self.C,w,w,16) #b,C,w,w,16

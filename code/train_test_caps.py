@@ -20,6 +20,13 @@ import itertools
 import glob
 import sklearn.metrics
 
+import os
+from helpers import util,visualize,augmenters
+import random
+import dataset
+import numpy as np
+
+
 def train_model(out_dir_train,
                 train_data,
                 test_data,
@@ -38,7 +45,8 @@ def train_model(out_dir_train,
                 num_workers = 0,
                 model_file = None,
                 epoch_start = 0,
-                caps=False):
+                margin_params = None,
+                network_params = None):
 
     util.mkdir(out_dir_train)
     log_file = os.path.join(out_dir_train,'log.txt')
@@ -47,7 +55,7 @@ def train_model(out_dir_train,
     plot_arr = [[],[]]
     plot_val_arr = [[],[]]
 
-    network = models.get(model_name)
+    network = models.get(model_name,network_params)
     # data_transforms = network.data_transforms
     if model_file is not None:
     #     model = network.model
@@ -79,19 +87,35 @@ def train_model(out_dir_train,
     model = model.cuda()
     model.train(True)
     
-    optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
+    # optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
+    optimizer = torch.optim.Adam(network.get_lr_list(lr))
 
     if dec_after is not None:
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after, gamma=0.1)
 
+    if criterion=='spread':
+        margin = margin_params['start']
+
     for num_epoch in range(epoch_start,num_epochs):
+
+        if criterion=='spread':
+            if num_epoch % margin_params['step'] ==0:
+                i = num_epoch//margin_params['step']
+                inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
+                margin = i*inc+margin_params['start']
 
         for num_iter_train,batch in enumerate(train_dataloader):
             
             data = Variable(batch['image'].cuda())
             labels = Variable(torch.LongTensor(batch['label']).cuda())
             optimizer.zero_grad()
-            loss = criterion(model(data), labels)    
+
+            if criterion=='spread':
+                loss = model.spread_loss(model(data), labels, margin)    
+            else:    
+                loss = criterion(model(data), labels)    
+            
+
             loss_iter = loss.data[0]
             loss.backward()
             optimizer.step()
@@ -99,8 +123,10 @@ def train_model(out_dir_train,
             
             num_iter = num_epoch*len(train_dataloader)+num_iter_train
             plot_arr[0].append(num_iter); plot_arr[1].append(loss_iter)
-
-            str_display = 'lr: %.6f, iter: %d, loss: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter)
+            if criterion=='spread':
+                str_display = 'margin: %.3f, lr: %.6f, iter: %d, loss: %.4f' %(margin,optimizer.param_groups[-1]['lr'],num_iter,loss_iter)    
+            else:
+                str_display = 'lr: %.6f, iter: %d, loss: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter)
             log_arr.append(str_display)
             print str_display
 
@@ -126,8 +152,10 @@ def train_model(out_dir_train,
                 
                 out = output.data.cpu().numpy()
                 predictions.append(np.argmax(out,1))                
-
-                loss = criterion(output, labels)    
+                if criterion=='spread':
+                    loss = model.spread_loss(model(data), labels, margin)    
+                else:    
+                    loss = criterion(output, labels)    
                 loss_iter = loss.data[0]
 
                 num_iter = num_epoch*len(train_dataloader)+num_iter_test
@@ -220,8 +248,11 @@ def test_model(out_dir_train,
         out_all.append(out)
         
         predictions.append(np.argmax(out,1))
-        
-        loss = criterion(output, labels)    
+        if criterion=='spread':
+            loss = model.spread_loss(model(data), labels, margin)    
+        else:    
+            loss = criterion(output, labels)    
+
         loss_iter = loss.data[0]
 
         str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
@@ -262,7 +293,70 @@ def test_model(out_dir_train,
     
     util.writeFile(log_file, log_arr)
     
-        
+def main():
+
+    out_dir_meta = '../experiments/mat_capsules/'
+    num_epochs = 50
+    dec_after = 50
+    lr = 0.02
+    split_num = 0
+    margin_params = {'step':1,'start':0.2}
+
+    strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr,margin_params['step']]])
+    
+    out_dir_train = os.path.join(out_dir_meta,'bigger_ck_'+str(split_num)+'_'+strs_append)
+    print out_dir_train
+
+    train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
+    test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
+    mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
+    std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
+
+    data_transforms = {}
+    data_transforms['train']= transforms.Compose([
+        lambda x: augmenters.random_crop(x,32),
+        lambda x: augmenters.horizontal_flip(x),
+        transforms.ToTensor(),
+        lambda x: x*255.
+    ])
+    data_transforms['val']= transforms.Compose([
+        lambda x: augmenters.crop_center(x,32,32),
+        transforms.ToTensor(),
+        lambda x: x*255.
+        ])
+
+    train_data = dataset.CK_48_Dataset(train_file, mean_file, std_file, data_transforms['train'])
+    test_data = dataset.CK_48_Dataset(test_file, mean_file, std_file, data_transforms['val'])
+    
+    
+    batch_size = 16
+    batch_size_val = 16
+
+
+    util.makedirs(out_dir_train)
+    
+    train_params = dict(out_dir_train = out_dir_train,
+                train_data = train_data,
+                test_data = test_data,
+                batch_size = batch_size,
+                batch_size_val = batch_size_val,
+                num_epochs = num_epochs,
+                save_after = 1,
+                disp_after = 1,
+                plot_after = 10,
+                test_after = 1,
+                lr = lr,
+                dec_after = dec_after, 
+                model_name = 'pytorch_mat_capsules',
+                criterion = 'spread',
+                gpu_id = 1,
+                num_workers = 0,
+                model_file = None,
+                epoch_start = 0,
+                margin_params = margin_params,
+                network_params = dict(A=32,B=32,C=32,D=32,E=32,r=1))
+
+    train_model(**train_params)
 
 
 

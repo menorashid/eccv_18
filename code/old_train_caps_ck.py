@@ -21,6 +21,7 @@ import scipy.misc
 import numpy as np
 import dataset
 from torchvision import transforms
+from helpers import augmenters
 
 class CapsNet(nn.Module):
     def __init__(self,A=32,B=32,C=32,D=32, E=10,r = 3):
@@ -151,6 +152,7 @@ class CapsNet_ck(nn.Module):
 
     
 
+    
 def main():
     from models.utils import get_args, get_dataloader
 
@@ -177,7 +179,7 @@ def main():
     disable_cuda = False
     gpu = 2
     lr = 0.2
-    num_epochs = 100
+    num_epochs = 10
     disp_after = 1
     r = 1
     use_cuda = True
@@ -196,13 +198,21 @@ def main():
 
     data_transforms['train']= transforms.Compose([
         # lambda x: augment_image(x, list_of_to_dos, mean_im = mean_im, std_im = std_im,im_size = 48),
-        # transforms.CenterCrop(32),
+        # lambda x: np.concatenate([x,x,x],2),
+        # transforms.ToPILImage(),
+
+        # transforms.RandomCrop(32),
+        # transforms.RandomHorizontalFlip(),
+        # lambda x: x[:,:,:1],
+        lambda x: augmenters.random_crop(x,32),
+        lambda x: augmenters.horizontal_flip(x),
         transforms.ToTensor(),
         lambda x: x*255.
     ])
 
     data_transforms['val']= transforms.Compose([
         # transforms.CenterCrop(32),
+        lambda x: augmenters.crop_center(x,32,32),
         transforms.ToTensor(),
         lambda x: x*255.
         ])
@@ -326,9 +336,9 @@ def main():
             # scheduler.step(acc)
             if epoch%save_after == 0:
                 torch.save(model.state_dict(), "./model_{}.pth".format(epoch))
-            if loss.cpu().data[0]==0.0:
-                print out_labels,labels
-                break
+            # if loss.cpu().data[0]==0.0:
+            #     print out_labels,labels
+            #     break
 
                 
             

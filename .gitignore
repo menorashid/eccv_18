@@ -54,3 +54,5 @@ bbox-annotator
 *.txt
 *.png
 darknet
+cuda
+models-master
