@@ -29,6 +29,7 @@ import tensorflow as tf
 
 from input_data.cifar10 import cifar10_input
 from input_data.mnist import mnist_input_record
+from input_data.ck import ck_input_record
 from input_data.norb import norb_input_record
 from models import capsule_model
 from models import conv_model
@@ -111,6 +112,13 @@ def get_features(split, total_batch_size, num_gpus, data_dir, num_targets,
         features.append(
             cifar10_input.inputs(
                 split=split, data_dir=data_dir, batch_size=batch_size))
+      elif dataset == 'ck':
+        # ck_inst = ck_input_record.ck(data_dir,'..')
+        features.append(ck_input_record.inputs(data_dir=data_dir,
+                        batch_size=batch_size,
+                        split=split,
+                        num_targets=num_targets,
+                        validate=validate))
       else:
         raise ValueError(
             'Unexpected dataset {!r}, must be mnist, norb, or cifar10.'.format(

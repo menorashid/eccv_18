@@ -21,7 +21,7 @@ dataset.
 
 from __future__ import absolute_import
 from __future__ import division
-from __future__ import print_function
+# from __future__ import print_function
 
 import os
 import random
@@ -43,6 +43,7 @@ def _read_and_decode(filename_queue, image_dim=28, distort=False,
     Dictionary of the (Image, label) and the image height.
 
   """
+  
   reader = tf.TFRecordReader()
   _, serialized_example = reader.read(filename_queue)
   features = tf.parse_single_example(
@@ -59,11 +60,14 @@ def _read_and_decode(filename_queue, image_dim=28, distort=False,
   # length image_pixel*image_pixel) to a uint8 tensor with shape
   # [image_pixel, image_pixel, 1].
   image = tf.decode_raw(features['image_raw'], tf.uint8)
+  
+
   image = tf.reshape(image, [image_dim, image_dim, 1])
   image.set_shape([image_dim, image_dim, 1])
 
   # Convert from [0, 255] -> [-0.5, 0.5] floats.
   image = tf.cast(image, tf.float32) * (1. / 255)
+  
   if distort:
     cropped_dim = image_dim - 4
     if split == 'train':
@@ -89,6 +93,8 @@ def _read_and_decode(filename_queue, image_dim=28, distort=False,
       'recons_image': image,
       'recons_label': label,
   }
+
+  
   return features, image_dim
 
 
@@ -190,6 +196,7 @@ def inputs(data_dir,
     Dictionary of Batched features and labels.
 
   """
+  
   if num_targets == 2:
     filenames = _generate_sharded_filenames(data_dir)
   else:
@@ -202,6 +209,7 @@ def inputs(data_dir,
     else:
       shift = 0
     filenames = [os.path.join(data_dir, file_format.format(split, shift))]
+    print filenames
 
   with tf.name_scope('input'):
     filename_queue = tf.train.string_input_producer(
@@ -230,4 +238,5 @@ def inputs(data_dir,
     batched_features['depth'] = 1
     batched_features['num_targets'] = num_targets
     batched_features['num_classes'] = 10
+
     return batched_features
