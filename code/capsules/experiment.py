@@ -117,7 +117,6 @@ def get_features(split, total_batch_size, num_gpus, data_dir, num_targets,
         features.append(ck_input_record.inputs(data_dir=data_dir,
                         batch_size=batch_size,
                         split=split,
-                        num_targets=num_targets,
                         validate=validate))
       else:
         raise ValueError(
@@ -393,22 +392,24 @@ def evaluate(hparams, summary_dir, num_gpus, model_type, eval_size, data_dir,
     seen_step = -1
     paused = 0
     while paused < 360:
+      print (checkpoint)
       print('start evaluation, model defined')
       if checkpoint:
         step = extract_step(checkpoint)
         last_checkpoint = checkpoint
       else:
         step, last_checkpoint = find_checkpoint(load_dir, seen_step)
+        print (last_checkpoint,step)
       if step == -1:
         time.sleep(60)
         paused += 1
       else:
         paused = 0
         seen_step = step
-        run_experiment(load_eval, last_checkpoint, test_writer, eval_experiment,
-                       result, eval_size // 100)
-        if checkpoint:
-          break
+      run_experiment(load_eval, last_checkpoint, test_writer, eval_experiment,
+                     result, eval_size // 100)
+      if checkpoint:
+        break
 
     test_writer.close()
 

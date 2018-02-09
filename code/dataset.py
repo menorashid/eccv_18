@@ -63,19 +63,19 @@ class CK_96_Dataset(generic_dataset):
 
         return sample
 
-class CK_48_Dataset(generic_dataset):
-    def __init__(self, text_file, mean_file, std_file, transform=None):
-        super(CK_48_Dataset, self).__init__(text_file,transform)
-
-        self.mean = scipy.misc.imresize(scipy.misc.imread(mean_file),(48,48)).astype(np.float32)
-        self.std = scipy.misc.imresize(scipy.misc.imread(std_file),(48,48)).astype(np.float32)
+class CK_RS_Dataset(generic_dataset):
+    def __init__(self, text_file, mean_file, std_file, im_size, transform=None):
+        super(CK_RS_Dataset, self).__init__(text_file,transform)
+        self.im_size = im_size
+        self.mean = scipy.misc.imresize(scipy.misc.imread(mean_file),(im_size,im_size)).astype(np.float32)
+        self.std = scipy.misc.imresize(scipy.misc.imread(std_file),(im_size,im_size)).astype(np.float32)
         self.std[self.std==0]=1.
         
     def __getitem__(self, idx):
         train_file_curr = self.files[idx]
         train_file_curr,label = train_file_curr.split(' ')
         label = int(label)
-        image = scipy.misc.imresize(scipy.misc.imread(train_file_curr),(48,48)).astype(np.float32)
+        image = scipy.misc.imresize(scipy.misc.imread(train_file_curr),(self.im_size,self.im_size)).astype(np.float32)
         # print np.min(image),np.max(image)
         image = image-self.mean
         # print np.min(image),np.max(image)

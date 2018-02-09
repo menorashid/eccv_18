@@ -2,7 +2,7 @@ import os
 from helpers import util
 import glob
 
-def main():
+def delete_some_files():
 	print 'hello'
 	problem_dir = '/home/maheenrashid/eccv_18/experiments/sabour_mnist/attempt0_no_remake/train'
 
@@ -32,7 +32,21 @@ def main():
 
 	all_files = glob.glob(os.path.join(problem_dir,'model.ckpt-*'))
 	print 'FILES After',len(all_files)
+
+
+def main():
+	out_file_sh = 'capsules/test_em_all.sh'
+	all_commands = []
+	for model_num in range(100,1100,100):
+		# command_curr = 'python experiment.py --data_dir=../../data/ck_96/train_test_files_tfrecords/test_0.tfrecords --train=false --summary_dir=../../experiments/sabour_mnist/ck_attempt_0/results_%s --checkpoint=../../experiments/sabour_mnist/ck_attempt_0/train/model.ckpt-%s --hparams_override remake=0 --dataset ck' % (str(model_num),str(model_num))
+
+		command_curr = 'python experiment.py --data_dir=../../data/ck_96/train_test_files_tfrecords/test_0.tfrecords --train=false --summary_dir=../../experiments/sabour_mnist/ck_attempt_0_baseline/results_%s --checkpoint=../../experiments/sabour_mnist/ck_attempt_0_baseline/train/model.ckpt-%s --hparams_override remake=0 --dataset ck --model=baseline --validate=true' % (str(model_num),str(model_num))
 	
+		all_commands.append(command_curr)
+
+	util.writeFile(out_file_sh,all_commands)
+
+
 
 
 

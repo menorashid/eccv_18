@@ -25,22 +25,11 @@ from __future__ import division
 
 import os
 import random
+
 import tensorflow as tf
-import scipy.misc
-import numpy as np
-import random
-import input_data.ck.util as util
-import itertools
 
-# class ck():
-#   def __init__(self,data_dir,prepend):
-#     filenames = util.readLinesFromFile(data_dir)
-#     random.shuffle(filenames)
-#     generator = itertools.cycle(filenames)
-#     self.generator = generator
-#     self.prepend = prepend
 
-def _read_and_decode(line, image_dim=28, distort=False,
+def _read_and_decode(filename_queue, image_dim=28, distort=False,
                      split='train'):
   """Reads a single record and converts it to a tensor.
 
@@ -55,23 +44,64 @@ def _read_and_decode(line, image_dim=28, distort=False,
 
   """
   
-  
-  print line
-  prepend = '..'
-  # prepend
-  im_path, label  = line.split(' ')
-  im_path = os.path.join(prepend,im_path)
-  im = scipy.misc.imresize(scipy.misc.imread(im_path),(image_dim,image_dim)).astype(np.float32)
-  im = im * 1/255.
-  im = im[:,:,np.newaxis]
-  label = int(label)
+  reader = tf.TFRecordReader()
+  _, serialized_example = reader.read(filename_queue)
+  features = tf.parse_single_example(
+      serialized_example,
+      features={
+          'image_raw': tf.FixedLenFeature([], tf.string),
+          'label': tf.FixedLenFeature([], tf.int64),
+          'height': tf.FixedLenFeature([], tf.int64),
+          'width': tf.FixedLenFeature([], tf.int64),
+          'depth': tf.FixedLenFeature([], tf.int64)
+      })
 
-  return im, label
+  # Convert from a scalar string tensor (whose single string has
+  # length image_pixel*image_pixel) to a uint8 tensor with shape
+  # [image_pixel, image_pixel, 1].
+  image = tf.decode_raw(features['image_raw'], tf.float32)
+  image = tf.reshape(image, [96,96,1])
+  image = tf.image.resize_images(image,[image_dim, image_dim])
+  # image = tf.image.
+  # 
+  image.set_shape([image_dim, image_dim, 1])
+
+  # # Convert from [0, 255] -> [-0.5, 0.5] floats.
+  # image = tf.cast(image, tf.float32) * (1. / 255)
+  
+  # if distort:
+  #   cropped_dim = image_dim - 4
+  #   if split == 'train':
+  #     image = tf.reshape(image, [image_dim, image_dim])
+  #     image = tf.random_crop(image, [cropped_dim, cropped_dim])
+  #     # 0.26179938779 is 15 degress in radians
+  #     image = tf.contrib.image.rotate(image,
+  #                                     random.uniform(-0.26179938779,
+  #                                                    0.26179938779))
+  #     image = tf.reshape(image, [cropped_dim, cropped_dim, 1])
+  #     image.set_shape([cropped_dim, cropped_dim, 1])
+  #   else:
+  #     fraction = cropped_dim / image_dim
+  #     image = tf.image.central_crop(image, central_fraction=fraction)
+  #     image.set_shape([cropped_dim, cropped_dim, 1])
+  #   image_dim = cropped_dim
+
+  # Convert label from a scalar uint8 tensor to an int32 scalar.
+  label = tf.cast(features['label'], tf.int32)
+  features = {
+      'images': image,
+      'labels': tf.one_hot(label, 8),
+      'recons_image': image,
+      'recons_label': label,
+  }
+  print features['images'].get_shape()
+  
+  return features, image_dim
+
 
 def inputs(data_dir,
            batch_size,
            split,
-           num_targets,
            height=28,
            distort=False,
            batch_capacity=5000,
@@ -95,60 +125,43 @@ def inputs(data_dir,
 
   """
   
-  filenames = util.readLinesFromFile(data_dir)
+  # if num_targets == 2:
+  #   filenames = _generate_sharded_filenames(data_dir)
+  # else:
+  #   if validate:
+  #     file_format = '{}_{}shifted_mnist_valid.tfrecords'
+  #   else:
+  #     file_format = '{}_{}shifted_mnist.tfrecords'
+  #   if split == 'train':
+  #     shift = 2
+  #   else:
+  #     shift = 0
+  filenames = [data_dir]
+    # os.path.join(data_dir, file_format.format(split, shift))]
+    # print filenames
 
   with tf.name_scope('input'):
     filename_queue = tf.train.string_input_producer(
-        [data_dir], shuffle=(split == 'train'))
+        filenames, shuffle=(split == 'train'))
 
-    batched_features = cover_upper(filename_queue,data_dir, batch_size,height, distort=distort, split=split)
-    
-    return batched_features
-
-def cover_upper(q_obj,
-          filenames,
-           batch_size,
-           height,
-           distort,
-           split
-           ):
-    
-    dummy = q_obj.dequeue()
-
-    ims = []
-    labels = []
-    filenames = util.readLinesFromFile(filenames)
-
-    for idx_line, line in enumerate(filenames):
-    # itertools.filenames[:batch_size]:  
-    # while True:
-      # line = self.generator.next()
-      
-      random.shuffle(filenames)
-#     
-      im, label = _read_and_decode(
-            line, image_dim=height, distort=distort, split=split)
-      ims.append(im)
-      labels.append(label)
-      
-      if len(ims)==batch_size:
-        break
-    
-    
-    images = tf.convert_to_tensor(np.concatenate(ims,2),dtype = tf.float32)
-    labels = tf.convert_to_tensor(np.array(labels),dtype=tf.int64)
-    label_hot = tf.one_hot(labels,8)
-    
-    batched_features = {}
-    batched_features['images']=images
-    batched_features['labels']=label_hot
-    batched_features['recons_label']=labels
-    batched_features['recons_image']=images
-    batched_features['height'] = height
+    features, image_dim = _read_and_decode(
+          filename_queue, image_dim=height, distort=distort, split=split)
+    if split == 'train':
+      batched_features = tf.train.shuffle_batch(
+          features,
+          batch_size=batch_size,
+          num_threads=2,
+          capacity=batch_capacity + 3 * batch_size,
+          # Ensures a minimum amount of shuffling of examples.
+          min_after_dequeue=batch_capacity)
+    else:
+      batched_features = tf.train.batch(
+          features,
+          batch_size=batch_size,
+          num_threads=1,
+          capacity=batch_capacity + 3 * batch_size)
+    batched_features['height'] = image_dim
     batched_features['depth'] = 1
-    batched_features['num_targets'] = 1
-    # num_targets
     batched_features['num_classes'] = 8
-
+    batched_features['num_targets']=1
     return batched_features
-    
