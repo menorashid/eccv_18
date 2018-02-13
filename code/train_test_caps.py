@@ -120,6 +120,11 @@ def train_model(out_dir_train,
     if criterion=='spread':
         margin = margin_params['start']
 
+    recons = False
+    # print network_params
+    if network_params is not None and network_params['reconstruct']:
+        recons=True
+
     for num_epoch in range(epoch_start,num_epochs):
 
         if criterion=='spread':
@@ -136,6 +141,9 @@ def train_model(out_dir_train,
 
             if criterion=='spread':
                 loss = model.spread_loss(model(data), labels, margin) 
+            elif criterion =='margin' and recons:
+                # print 'RECONS'
+                loss = model.margin_loss(model(data,labels), labels) 
             elif criterion =='margin':
                 loss = model.margin_loss(model(data), labels) 
             else:    
@@ -177,15 +185,20 @@ def train_model(out_dir_train,
                 labels = Variable(torch.LongTensor(batch['label']).cuda())
                 output = model(data)
                 
-                out = output.data.cpu().numpy()
-                predictions.append(np.argmax(out,1))                
                 if criterion=='spread':
-                    loss = model.spread_loss(model(data), labels, margin)    
+                    loss = model.spread_loss(output, labels, margin)    
                 elif criterion =='margin':
-                    loss = model.margin_loss(model(data), labels) 
+                    loss = model.margin_loss(output, labels) 
                 else:    
                     loss = criterion(output, labels)    
                 loss_iter = loss.data[0]
+                
+                if isinstance(output, tuple):
+                    out = output[0].data.cpu().numpy()
+                else:
+                    out = output.data.cpu().numpy()
+                predictions.append(np.argmax(out,1))                
+                
 
                 num_iter = num_epoch*len(train_dataloader)+num_iter_test
                 plot_val_arr[0].append(num_iter); plot_val_arr[1].append(loss_iter)
@@ -322,156 +335,405 @@ def test_model(out_dir_train,
     
     util.writeFile(log_file, log_arr)
 
-def old_exp():
-    out_dir_meta = '../experiments/mat_capsules/'
-    num_epochs = 50
-    dec_after = 50
-    lr = 0.02
-    split_num = 0
-    margin_params = {'step':1,'start':0.2}
+def save_output_capsules(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss(),
+                network_params = None):
 
-    strs_append = '_'.join([str(val) for val in [num_epochs,dec_after,lr,margin_params['step']]])
+    out_dir_results = os.path.join(out_dir_train,'out_caps_model_test_'+str(model_num))
+    print out_dir_results
+    util.mkdir(out_dir_results)
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_file = os.path.join(out_dir_results,'log.txt')
+    log_arr=[]
+
+    # network = models.get(model_name)
+    network = models.get(model_name,network_params)
+    # data_transforms = network.data_transforms
+
+    # test_data = dataset(test_file,data_transforms['val'])
     
-    out_dir_train = os.path.join(out_dir_meta,'bigger_ck_'+str(split_num)+'_'+strs_append)
-    print out_dir_train
-
-    train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
-    test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
-    mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
-    std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
-
-    data_transforms = {}
-    data_transforms['train']= transforms.Compose([
-        lambda x: augmenters.random_crop(x,32),
-        lambda x: augmenters.horizontal_flip(x),
-        transforms.ToTensor(),
-        lambda x: x*255.
-    ])
-    data_transforms['val']= transforms.Compose([
-        lambda x: augmenters.crop_center(x,32,32),
-        transforms.ToTensor(),
-        lambda x: x*255.
-        ])
-
-    train_data = dataset.CK_48_Dataset(train_file, mean_file, std_file, data_transforms['train'])
-    test_data = dataset.CK_48_Dataset(test_file, mean_file, std_file, data_transforms['val'])
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
     
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=1)
+
+    torch.cuda.device(0)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
     
-    batch_size = 16
-    batch_size_val = 16
-
-
-    util.makedirs(out_dir_train)
+    # criterion = nn.CrossEntropyLoss()
     
-    train_params = dict(out_dir_train = out_dir_train,
-                train_data = train_data,
-                test_data = test_data,
-                batch_size = batch_size,
-                batch_size_val = batch_size_val,
-                num_epochs = num_epochs,
-                save_after = 1,
-                disp_after = 1,
-                plot_after = 10,
-                test_after = 1,
-                lr = lr,
-                dec_after = dec_after, 
-                model_name = 'pytorch_mat_capsules',
-                criterion = 'spread',
-                gpu_id = 1,
-                num_workers = 0,
-                model_file = None,
-                epoch_start = 0,
-                margin_params = margin_params,
-                network_params = dict(A=32,B=32,C=32,D=32,E=32,r=1))
+    predictions = []
+    labels_all = []
+    out_all = []
+    caps_all = []
+    recons_all = []
 
-    train_model(**train_params)
+    for num_iter,batch in enumerate(test_dataloader):
+                
+        # batch = test_dataloader.next() 
+        labels_all.append(batch['label'].numpy())
 
- 
-def main():
+        data = Variable(batch['image'].cuda())
+        labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+
+        # output, caps = 
+        all_out = model(data, return_caps = True)
+        caps = all_out[-1]    
+        output = all_out[0]
+        if len(all_out)>2:
+            recons = all_out[1]
+            recons_all.append(recons.data.cpu().numpy())
+
+        out = output.data.cpu().numpy()
+        # print out.shape
+        caps = caps.data.cpu().numpy()
+        # print caps.shape
+
+        # raw_input()
+
+        out_all.append(out)
+        caps_all.append(caps)
+        predictions.append(np.argmax(out,1))
+        # if criterion=='spread':
+        #     loss = model.spread_loss(model(data), labels, margin)    
+        # else:    
+        loss = criterion(output, labels)    
+
+        loss_iter = loss.data[0]
+
+        str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
+        log_arr.append(str_display)
+        print str_display
+        
+
+        util.writeFile(log_file, log_arr)
     
+
+    out_all = np.concatenate(out_all,0)
+    predictions = np.concatenate(predictions)
+    labels_all = np.concatenate(labels_all)
+    caps_all = np.concatenate(caps_all,0)
+    if len(recons_all)>0:
+        recons_all = np.concatenate(recons_all,0)
+        np.save(os.path.join(out_dir_results, 'recons_all.npy'),recons_all)    
     
-    out_dir_meta = '../experiments/dynamic_capsules/'
-    num_epochs = 108
-    dec_after = ['exp',0.96,50,1e-6]
-    lr = 0.001
-    split_num = 0
-    im_size = 28
-    # margin_params = {'step':1,'start':0.2}
+    np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
+    np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
+    np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
+    np.save(os.path.join(out_dir_results, 'caps_all.npy'),caps_all)
 
-    strs_append = '_'.join([str(val) for val in [num_epochs,dec_after[0],lr]])
+    print labels_all.shape
+    print predictions.shape
+    print out_all.shape
+    print caps_all.shape
+
+    # y_true = np.zeros((labels_all.shape[0],2))
+    # y_true[labels_all==0,0]=1
+    # y_true[labels_all==1,1]=1
+
+    # f1 = sklearn.metrics.f1_score(labels_all, predictions)
+    # ap = sklearn.metrics.average_precision_score(y_true, out_all)
+    # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
+    accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+    # str_display = 'f1: %.4f' %(f1)
+    # print str_display
+    # log_arr.append(str_display)
     
-    out_dir_train = os.path.join(out_dir_meta,'ck_bigger_'+str(split_num)+'_'+strs_append)
-    print out_dir_train
-
-    train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
-    test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
-    mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
-    std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
-
-    data_transforms = {}
-    data_transforms['train']= transforms.Compose([
-        # lambda x: augmenters.random_crop(x,32),
-        lambda x: augmenters.horizontal_flip(x),
-        transforms.ToTensor(),
-        lambda x: x*255.
-    ])
-    data_transforms['val']= transforms.Compose([
-        # lambda x: augmenters.crop_center(x,32,32),
-        transforms.ToTensor(),
-        lambda x: x*255.
-        ])
-
-    train_data = dataset.CK_RS_Dataset(train_file, mean_file, std_file, im_size, data_transforms['train'])
-    test_data = dataset.CK_RS_Dataset(test_file, mean_file, std_file, im_size, data_transforms['val'])
-    # train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
-    # test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
+    # str_display = 'ap: %.4f' %(ap)
+    # print str_display
+    # log_arr.append(str_display)
     
-    network_params = dict(n_classes=8,
-                        conv_layers = None,
-                        # [[259,9,1]],
-                        caps_layers = None,
-                        # [[32,8,5,2],[32,8,5,2],[32,8,5,2],[8,16,6,1]],
-                        r=3)
+    # str_display = 'roc_auc: %.4f' %(roc_auc)
+    # print str_display
+    # log_arr.append(str_display)
     
-    batch_size = 128
-    batch_size_val = 128
-
-
-    util.makedirs(out_dir_train)
+    str_display = 'accuracy: %.4f' %(accuracy)
+    print str_display
+    log_arr.append(str_display)
     
-    train_params = dict(out_dir_train = out_dir_train,
-                train_data = train_data,
-                test_data = test_data,
-                batch_size = batch_size,
-                batch_size_val = batch_size_val,
-                num_epochs = num_epochs,
-                save_after = 1,
-                disp_after = 1,
-                plot_after = 10,
-                test_after = 1,
-                lr = lr,
-                dec_after = dec_after, 
-                model_name = 'dynamic_capsules',
-                criterion = 'margin',
-                gpu_id = 1,
-                num_workers = 0,
-                model_file = None,
-                epoch_start = 0,
-                network_params = network_params)
-
-    print train_params
-    param_file = os.path.join(out_dir_train,'params.txt')
-    all_lines = []
-    for k in train_params.keys():
-        str_print = '%s: %s' % (k,train_params[k])
-        print str_print
-        all_lines.append(str_print)
-    util.writeFile(param_file,all_lines)
-
-    train_model(**train_params)
+    util.writeFile(log_file, log_arr)
 
 
+def test_model(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss()):
+
+    out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num))
+    util.mkdir(out_dir_results)
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_file = os.path.join(out_dir_results,'log.txt')
+    log_arr=[]
+
+    network = models.get(model_name)
+    # data_transforms = network.data_transforms
+
+    # test_data = dataset(test_file,data_transforms['val'])
+    
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+    
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=1)
+
+    torch.cuda.device(0)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
+    
+    # criterion = nn.CrossEntropyLoss()
+    
+    predictions = []
+    labels_all = []
+    out_all = []
+
+    for num_iter,batch in enumerate(test_dataloader):
+                
+        # batch = test_dataloader.next() 
+        labels_all.append(batch['label'].numpy())
+
+        data = Variable(batch['image'].cuda())
+        labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+
+        output = model(data)
+        out = output.data.cpu().numpy()
+        out_all.append(out)
+        
+        predictions.append(np.argmax(out,1))
+        if criterion=='spread':
+            loss = model.spread_loss(model(data), labels, margin)    
+        else:    
+            loss = criterion(output, labels)    
+
+        loss_iter = loss.data[0]
+
+        str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
+        log_arr.append(str_display)
+        print str_display
+        
+
+        util.writeFile(log_file, log_arr)
+    
+    out_all = np.concatenate(out_all,0)
+    predictions = np.concatenate(predictions)
+    labels_all = np.concatenate(labels_all)
+    
+    # y_true = np.zeros((labels_all.shape[0],2))
+    # y_true[labels_all==0,0]=1
+    # y_true[labels_all==1,1]=1
+
+    # f1 = sklearn.metrics.f1_score(labels_all, predictions)
+    # ap = sklearn.metrics.average_precision_score(y_true, out_all)
+    # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
+    accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+    # str_display = 'f1: %.4f' %(f1)
+    # print str_display
+    # log_arr.append(str_display)
+    
+    # str_display = 'ap: %.4f' %(ap)
+    # print str_display
+    # log_arr.append(str_display)
+    
+    # str_display = 'roc_auc: %.4f' %(roc_auc)
+    # print str_display
+    # log_arr.append(str_display)
+    
+    str_display = 'accuracy: %.4f' %(accuracy)
+    print str_display
+    log_arr.append(str_display)
+    
+    util.writeFile(log_file, log_arr)
+
+def save_perturbed_images(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss(),
+                network_params = None):
+
+    out_dir_results = os.path.join(out_dir_train,'vary_a_batch_'+str(model_num))
+    print out_dir_results
+    util.mkdir(out_dir_results)
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_arr=[]
+
+    network = models.get(model_name,network_params)
+    
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+    
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=1)
+
+    torch.cuda.device(0)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
+    
+    # criterion = nn.CrossEntropyLoss()
+    
+    predictions = []
+    labels_all = []
+    out_all = []
+    caps_all = []
+    recons_all = {}
+
+    mean_im = test_data.mean
+    
+    mean_im = mean_im[np.newaxis,:,:]
+    std_im = test_data.std[np.newaxis,:,:]
 
 
-if __name__=='__main__':
-    main()
+    for num_iter,batch in enumerate(test_dataloader):
+                
+        # batch = test_dataloader.next() 
+        labels_all.append(batch['label'].numpy())
+
+        data = Variable(batch['image'].cuda())
+        labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+
+        # output, caps = 
+        all_out = model(data, return_caps = True)
+        caps = all_out[-1]    
+        
+        recons_all[(-1,-2)] = all_out[1].data.cpu().numpy()
+        recons_all[(-1,-1)] = model.just_reconstruct(caps,labels).data.cpu().numpy()
+
+        print caps.size()
+        caps_data = caps.data.cpu().numpy()
+
+        for dim_num in range(caps.size(2)):
+            
+            
+
+            for inc_curr in np.arange(-0.25,0.30,0.05):
+                caps = torch.autograd.Variable(torch.Tensor(caps_data)).cuda()
+                caps[:,:,dim_num]=inc_curr
+
+                recons_curr = model.just_reconstruct(caps,labels)
+                recons_all[(dim_num,inc_curr)]=recons_curr.data.cpu().numpy()
+        # recons_curr = 
+        break
+
+    for key_curr in recons_all.keys():
+
+        recons = recons_all[key_curr]
+        recons = (recons*std_im)+mean_im
+        out_dir = os.path.join(out_dir_results,'%d_%.2f'%(key_curr[0],key_curr[1]))
+        util.mkdir(out_dir)
+        for idx_im_curr,im_curr in enumerate(recons):
+            scipy.misc.imsave(os.path.join(out_dir,str(idx_im_curr)+'.jpg'),im_curr[0])
+        visualize.writeHTMLForFolder(out_dir,'.jpg')
+
+
+
+
+    #     output = all_out[0]
+    #     if len(all_out)>2:
+    #         recons = all_out[1]
+    #         recons_all.append(recons.data.cpu().numpy())
+
+    #     out = output.data.cpu().numpy()
+    #     # print out.shape
+    #     caps = caps.data.cpu().numpy()
+
+
+    #     print caps.shape
+    #     # print np.min(caps[0],0),np.max(caps[0],0)
+    #     print np.min(np.min(caps,1),0),np.max(np.max(caps,1),0)
+    #     print np.min(np.min(caps,2),0),np.max(np.max(caps,2),0)
+    #     raw_input()
+    #     # print caps.shape
+
+    #     # raw_input()
+
+    #     out_all.append(out)
+    #     caps_all.append(caps)
+    #     predictions.append(np.argmax(out,1))
+    #     # if criterion=='spread':
+    #     #     loss = model.spread_loss(model(data), labels, margin)    
+    #     # else:    
+    #     loss = criterion(output, labels)    
+
+    #     loss_iter = loss.data[0]
+
+    #     str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
+    #     log_arr.append(str_display)
+    #     print str_display
+        
+
+    #     util.writeFile(log_file, log_arr)
+    
+
+    # out_all = np.concatenate(out_all,0)
+    # predictions = np.concatenate(predictions)
+    # labels_all = np.concatenate(labels_all)
+    # caps_all = np.concatenate(caps_all,0)
+    # if len(recons_all)>0:
+    #     recons_all = np.concatenate(recons_all,0)
+    #     np.save(os.path.join(out_dir_results, 'recons_all.npy'),recons_all)    
+    
+    # np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
+    # np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
+    # np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
+    # np.save(os.path.join(out_dir_results, 'caps_all.npy'),caps_all)
+
+    # print labels_all.shape
+    # print predictions.shape
+    # print out_all.shape
+    # print caps_all.shape
+
+    # # y_true = np.zeros((labels_all.shape[0],2))
+    # # y_true[labels_all==0,0]=1
+    # # y_true[labels_all==1,1]=1
+
+    # # f1 = sklearn.metrics.f1_score(labels_all, predictions)
+    # # ap = sklearn.metrics.average_precision_score(y_true, out_all)
+    # # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
+    # accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+    # # str_display = 'f1: %.4f' %(f1)
+    # # print str_display
+    # # log_arr.append(str_display)
+    
+    # # str_display = 'ap: %.4f' %(ap)
+    # # print str_display
+    # # log_arr.append(str_display)
+    
+    # # str_display = 'roc_auc: %.4f' %(roc_auc)
+    # # print str_display
+    # # log_arr.append(str_display)
+    
+    # str_display = 'accuracy: %.4f' %(accuracy)
+    # print str_display
+    # log_arr.append(str_display)
+    
+    # util.writeFile(log_file, log_arr)
+    
+
+
+
