@@ -38,11 +38,13 @@ class Exp_Lr_Scheduler:
 
     def step(self):
         self.step_curr += 1
-        new_lr = self.init_lr * self.decay_rate **(self.step_curr/self.decay_steps)
-        new_lr = max(new_lr ,self.min_lr)
-
-        for param_group in self.optimizer.param_groups:    
-            param_group['lr'] = new_lr
+        for idx_param_group,param_group in enumerate(self.optimizer.param_groups): 
+            # print idx_param_group,param_group['lr'],
+            if self.init_lr[idx_param_group]!=0:
+                new_lr = self.init_lr[idx_param_group] * self.decay_rate **(self.step_curr/self.decay_steps)
+                new_lr = max(new_lr ,self.min_lr)
+                param_group['lr'] = new_lr
+            # print param_group['lr']
 
 def train_model(out_dir_train,
                 train_data,
@@ -63,7 +65,8 @@ def train_model(out_dir_train,
                 model_file = None,
                 epoch_start = 0,
                 margin_params = None,
-                network_params = None):
+                network_params = None,
+                just_encoder = False):
 
     util.mkdir(out_dir_train)
     log_file = os.path.join(out_dir_train,'log.txt')
@@ -77,8 +80,13 @@ def train_model(out_dir_train,
     if model_file is not None:
     #     model = network.model
     # else:
-        network.model = torch.load(model_file)
+        if network_params is not None and just_encoder:
+            network.model.features = torch.load(model_file).features
+        else:
+            network.model = torch.load(model_file)
     model = network.model
+
+    # print model
 
     # train_data = dataset(train_file,data_transforms['train'])
     # test_data = dataset(test_file,data_transforms['val'])
@@ -111,7 +119,7 @@ def train_model(out_dir_train,
         print dec_after
         if dec_after[0] is 'step':
             print dec_after
-            exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=0.1)
+            exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=dec_after[2])
         elif dec_after[0] is 'exp':
             print dec_after
             exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
@@ -122,7 +130,7 @@ def train_model(out_dir_train,
 
     recons = False
     # print network_params
-    if network_params is not None and network_params['reconstruct']:
+    if model_name.startswith('dynamic_capsules') and network_params['reconstruct']:
         recons=True
 
     for num_epoch in range(epoch_start,num_epochs):
@@ -187,6 +195,8 @@ def train_model(out_dir_train,
                 
                 if criterion=='spread':
                     loss = model.spread_loss(output, labels, margin)    
+                elif criterion =='margin' and recons:
+                    loss = model.margin_loss(model(data,labels), labels)     
                 elif criterion =='margin':
                     loss = model.margin_loss(output, labels) 
                 else:    
@@ -572,7 +582,7 @@ def save_perturbed_images(out_dir_train,
                 criterion = nn.CrossEntropyLoss(),
                 network_params = None):
 
-    out_dir_results = os.path.join(out_dir_train,'vary_a_batch_'+str(model_num))
+    out_dir_results = os.path.join(out_dir_train,'vary_a_batch_squash_'+str(model_num))
     print out_dir_results
     util.mkdir(out_dir_results)
     model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
@@ -633,6 +643,9 @@ def save_perturbed_images(out_dir_train,
             for inc_curr in np.arange(-0.25,0.30,0.05):
                 caps = torch.autograd.Variable(torch.Tensor(caps_data)).cuda()
                 caps[:,:,dim_num]=inc_curr
+                squared_norm = (caps ** 2).sum(dim=2, keepdim=True)
+                scale = squared_norm / (1 + squared_norm)
+                caps = scale * caps / torch.sqrt(squared_norm)
 
                 recons_curr = model.just_reconstruct(caps,labels)
                 recons_all[(dim_num,inc_curr)]=recons_curr.data.cpu().numpy()
@@ -648,92 +661,4 @@ def save_perturbed_images(out_dir_train,
         for idx_im_curr,im_curr in enumerate(recons):
             scipy.misc.imsave(os.path.join(out_dir,str(idx_im_curr)+'.jpg'),im_curr[0])
         visualize.writeHTMLForFolder(out_dir,'.jpg')
-
-
-
-
-    #     output = all_out[0]
-    #     if len(all_out)>2:
-    #         recons = all_out[1]
-    #         recons_all.append(recons.data.cpu().numpy())
-
-    #     out = output.data.cpu().numpy()
-    #     # print out.shape
-    #     caps = caps.data.cpu().numpy()
-
-
-    #     print caps.shape
-    #     # print np.min(caps[0],0),np.max(caps[0],0)
-    #     print np.min(np.min(caps,1),0),np.max(np.max(caps,1),0)
-    #     print np.min(np.min(caps,2),0),np.max(np.max(caps,2),0)
-    #     raw_input()
-    #     # print caps.shape
-
-    #     # raw_input()
-
-    #     out_all.append(out)
-    #     caps_all.append(caps)
-    #     predictions.append(np.argmax(out,1))
-    #     # if criterion=='spread':
-    #     #     loss = model.spread_loss(model(data), labels, margin)    
-    #     # else:    
-    #     loss = criterion(output, labels)    
-
-    #     loss_iter = loss.data[0]
-
-    #     str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
-    #     log_arr.append(str_display)
-    #     print str_display
-        
-
-    #     util.writeFile(log_file, log_arr)
-    
-
-    # out_all = np.concatenate(out_all,0)
-    # predictions = np.concatenate(predictions)
-    # labels_all = np.concatenate(labels_all)
-    # caps_all = np.concatenate(caps_all,0)
-    # if len(recons_all)>0:
-    #     recons_all = np.concatenate(recons_all,0)
-    #     np.save(os.path.join(out_dir_results, 'recons_all.npy'),recons_all)    
-    
-    # np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
-    # np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
-    # np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
-    # np.save(os.path.join(out_dir_results, 'caps_all.npy'),caps_all)
-
-    # print labels_all.shape
-    # print predictions.shape
-    # print out_all.shape
-    # print caps_all.shape
-
-    # # y_true = np.zeros((labels_all.shape[0],2))
-    # # y_true[labels_all==0,0]=1
-    # # y_true[labels_all==1,1]=1
-
-    # # f1 = sklearn.metrics.f1_score(labels_all, predictions)
-    # # ap = sklearn.metrics.average_precision_score(y_true, out_all)
-    # # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
-    # accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
-
-    # # str_display = 'f1: %.4f' %(f1)
-    # # print str_display
-    # # log_arr.append(str_display)
-    
-    # # str_display = 'ap: %.4f' %(ap)
-    # # print str_display
-    # # log_arr.append(str_display)
-    
-    # # str_display = 'roc_auc: %.4f' %(roc_auc)
-    # # print str_display
-    # # log_arr.append(str_display)
-    
-    # str_display = 'accuracy: %.4f' %(accuracy)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    # util.writeFile(log_file, log_arr)
-    
-
-
 

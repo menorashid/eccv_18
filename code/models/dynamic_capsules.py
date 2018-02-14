@@ -7,151 +7,16 @@ import math
 from torch.autograd import Variable
 
 import torch.nn.functional as F
+from CapsuleLayer import CapsuleLayer, softmax
 
 # from dynamic_capsule_layer import CapsuleLayer
 
-def softmax(input, dim=1):
-    transposed_input = input.transpose(dim, len(input.size()) - 1)
-    softmaxed_output = F.softmax(transposed_input.contiguous().view(-1, transposed_input.size(-1)))
-    return softmaxed_output.view(*transposed_input.size()).transpose(dim, len(input.size()) - 1)
 
+class Dynamic_Capsule_Model_Super(nn.Module):
 
-class CapsuleLayer(nn.Module):
-    def __init__(self, num_capsules, num_in_capsules, in_channels, out_channels, kernel_size, stride,
-                 num_iterations=3):
-        
-        super(CapsuleLayer, self).__init__()
-
-        self.num_route_nodes = num_in_capsules*kernel_size*kernel_size
-        self.num_in_capsules = num_in_capsules
-        self.num_iterations = num_iterations
-        self.num_capsules = num_capsules
-        self.kernel_size = kernel_size
-        self.stride = stride
-        self.out_channels = out_channels
-
-        if self.num_in_capsules != 1:
-            self.route_weights = nn.Parameter(torch.randn(num_capsules, self.num_route_nodes, in_channels, out_channels))
-        else:
-            self.route_weights=False
-            self.capsules = nn.Conv2d(in_channels, num_capsules*out_channels, kernel_size=kernel_size, stride=stride, padding=0) 
-
-    def squash(self, tensor, dim=-1):
-        squared_norm = (tensor ** 2).sum(dim=dim, keepdim=True)
-        scale = squared_norm / (1 + squared_norm)
-        return scale * tensor / torch.sqrt(squared_norm)
-
-
-    def forward(self,x):
-        if self.num_in_capsules != 1:
-            # print 'x.shape',x.shape
-            assert x.shape[2]==x.shape[3]
-            # x = x.permute(0,4,1,2,3).contiguous()
-
-            # print 'x.shape',x.shape
-            width_in = x.shape[2]
-            w = width_out = int((width_in-self.kernel_size)/self.stride+1) if self.kernel_size else 1 #5
-            # print 'w',w
-            outputs = Variable(torch.zeros(self.num_capsules,x.size(0),w,w,self.route_weights.size(-1))).cuda()
-
-            for row in range(w):  # Loop over every pixel of the output
-                for col in range(w):
-                    col_start = col* self.stride
-                    col_end = col*self.stride+self.kernel_size
-                    row_start = row* self.stride
-                    row_end = row*self.stride+self.kernel_size
-                    window = x[:,:,row_start:row_end,col_start:col_end,:].contiguous()
-                    # print window.size()
-                    window = window.view(1,window.size(0),window.size(1)*window.size(2)*window.size(3),1,window.size(4))
-                    # print window.size()
-                    priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
-
-                    # window = x[:,:,:,row_start:row_end,col_start:col_end]
-                    # print window.size()
-                    # window = window.view(window.size(0),window.size(1),window.size(2)*window.size(3)*window.size(4),1)
-                    # print window.size()
-                    # window = window.permute(0,1,3,2).contiguous()
-
-                    # priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
-
-
-                    logits = Variable(torch.zeros(*priors.size())).cuda()
-                    for i in range(self.num_iterations):
-                        probs = softmax(logits, dim=2)
-                        outputs_temp = self.squash((probs * priors).sum(dim=2, keepdim=True))
-
-                        if i != self.num_iterations - 1:
-                            delta_logits = (priors * outputs_temp).sum(dim=-1, keepdim=True)
-                            logits = logits + delta_logits
-                    
-                    outputs[:,:,row,col,:] = outputs_temp.squeeze()
-
-            outputs = outputs.permute(1,0,2,3,4).contiguous()
-        else:
-            outputs = self.capsules(x)
-            outputs = outputs.view(outputs.size(0),self.out_channels,self.num_capsules,outputs.size(2),outputs.size(3)).permute(0,2,3,4,1).contiguous()
-            # print outputs.shape
-            # print raw_input()
-            outputs = self.squash(outputs,dim=-1)
-
-        # print outputs.shape
-        return outputs
-
-class Dynamic_Capsule_Model(nn.Module):
-
-    def __init__(self,n_classes,conv_layers,caps_layers,r, reconstruct = False):
-        super(Dynamic_Capsule_Model, self).__init__()
-        print r
-        self.num_classes = n_classes
-        self.reconstruct = reconstruct
-        if self.reconstruct:
-            self.reconstruction_loss = nn.MSELoss(size_average=False)
-        # self.num_classes = n_classes
-        # self.conv1 = nn.Conv2d(in_channels=1, out_channels=256, kernel_size=9, stride=1)
-        # self.primary_capsules = CapsuleLayer(num_capsules=32, num_in_capsules=1, in_channels=256, out_channels=8,
-        #                                      kernel_size=9, stride=2)
-
-        # # self.temp = CapsuleLayer(num_capsules=32, num_in_capsules=32, in_channels=8, out_channels=8,
-        #                                      # kernel_size=2, stride=1)
-        
-        # self.digit_capsules = CapsuleLayer(num_capsules=self.num_classes, num_in_capsules=32, in_channels=8,out_channels=16,kernel_size = 6, stride =1)
-
-
-        self.features = []
-        for conv_param in conv_layers:
-            self.features.append(nn.Conv2d(in_channels=1, out_channels=conv_param[0],
-                                   kernel_size=conv_param[1], stride=conv_param[2]))
-            self.features.append(nn.ReLU(True))
-
-        # caps_param <- num_capsules, out_channels,kernel_size, stride
-
-        for idx_caps_param,caps_param in enumerate(caps_layers):
-
-          num_capsules, out_channels,kernel_size, stride = caps_param
-
-          if idx_caps_param==0:
-              in_channels = conv_layers[-1][0]
-              num_in_capsules = 1
-          else:
-              num_in_capsules = caps_layers[idx_caps_param-1][0]
-              in_channels = caps_layers[idx_caps_param-1][1]
-
-          print num_capsules, num_in_capsules, in_channels, out_channels, kernel_size, stride, r
-
-          self.features.append(CapsuleLayer(num_capsules, num_in_capsules, in_channels, out_channels, kernel_size=kernel_size, stride=stride, num_iterations=r))
-        
-        self.features = nn.Sequential(*self.features)
-
-        if self.reconstruct:
-            self.decoder = nn.Sequential(
-                nn.Linear(out_channels * self.num_classes, 512),
-                nn.ReLU(inplace=True),
-                nn.Linear(512, 1024),
-                nn.ReLU(inplace=True),
-                nn.Linear(1024, 784),
-                # nn.Tanh()
-            )
-
+    def __init__(self):
+        super(Dynamic_Capsule_Model_Super, self).__init__()
+       
     def just_reconstruct(self,x,y=None):
 
         if y is None:
@@ -166,7 +31,11 @@ class Dynamic_Capsule_Model(nn.Module):
         return reconstructions
 
     def forward(self, data, y = None,return_caps = False):
+        # print 'IN FORWARD',self.reconstruct,data.size(),y.size(),
+        
         x = self.features(data).squeeze()
+        # print x.size()
+
         # x = F.relu(self.conv1(x), inplace=True)
         # x = self.primary_capsules(x)
         # # x = self.temp(x)
@@ -177,12 +46,17 @@ class Dynamic_Capsule_Model(nn.Module):
         classes = F.softmax(classes)
 
         if self.reconstruct:
+            # print 'y',y.size()
             if y is None:
                 # In all batches, get the most active capsule.
                 _, max_length_indices = classes.max(dim=1)
                 y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=max_length_indices)
             else:
                 y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=y)
+            
+            # print y.size()
+            # print x.size()
+            # raw_input()
             reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
             reconstructions = reconstructions.view(reconstructions.size(0),1,int(math.sqrt(reconstructions.size(1))),int(math.sqrt(reconstructions.size(1))))
             # print reconstructions.size(),torch.min(reconstructions),torch.max(reconstructions)
@@ -252,6 +126,65 @@ class Dynamic_Capsule_Model(nn.Module):
         return total_loss
 
 
+
+class Dynamic_Capsule_Model(Dynamic_Capsule_Model_Super):
+
+    def __init__(self,n_classes,conv_layers,caps_layers,r, reconstruct = False):
+        super(Dynamic_Capsule_Model, self).__init__()
+        print r
+        self.num_classes = n_classes
+        self.reconstruct = reconstruct
+        if self.reconstruct:
+            self.reconstruction_loss = nn.MSELoss(size_average=False)
+        # self.num_classes = n_classes
+        # self.conv1 = nn.Conv2d(in_channels=1, out_channels=256, kernel_size=9, stride=1)
+        # self.primary_capsules = CapsuleLayer(num_capsules=32, num_in_capsules=1, in_channels=256, out_channels=8,
+        #                                      kernel_size=9, stride=2)
+
+        # # self.temp = CapsuleLayer(num_capsules=32, num_in_capsules=32, in_channels=8, out_channels=8,
+        #                                      # kernel_size=2, stride=1)
+        
+        # self.digit_capsules = CapsuleLayer(num_capsules=self.num_classes, num_in_capsules=32, in_channels=8,out_channels=16,kernel_size = 6, stride =1)
+
+
+        self.features = []
+        for conv_param in conv_layers:
+            self.features.append(nn.Conv2d(in_channels=1, out_channels=conv_param[0],
+                                   kernel_size=conv_param[1], stride=conv_param[2]))
+            self.features.append(nn.ReLU(True))
+
+        # caps_param <- num_capsules, out_channels,kernel_size, stride
+
+        for idx_caps_param,caps_param in enumerate(caps_layers):
+
+          num_capsules, out_channels,kernel_size, stride = caps_param
+
+          if idx_caps_param==0:
+              in_channels = conv_layers[-1][0]
+              num_in_capsules = 1
+          else:
+              num_in_capsules = caps_layers[idx_caps_param-1][0]
+              in_channels = caps_layers[idx_caps_param-1][1]
+
+          print num_capsules, num_in_capsules, in_channels, out_channels, kernel_size, stride, r
+
+          self.features.append(CapsuleLayer(num_capsules, num_in_capsules, in_channels, out_channels, kernel_size=kernel_size, stride=stride, num_iterations=r))
+        
+        self.features = nn.Sequential(*self.features)
+
+        if self.reconstruct:
+            self.decoder = nn.Sequential(
+                nn.Linear(out_channels * self.num_classes, 512),
+                nn.ReLU(inplace=True),
+                nn.Linear(512, 1024),
+                nn.ReLU(inplace=True),
+                nn.Linear(1024, 784),
+                # nn.Tanh()
+            )
+
+    
+
+
 class Network:
     def __init__(self,n_classes=10,r=3,input_size=96,conv_layers = None, caps_layers = None,reconstruct=False):
         if conv_layers is None:
@@ -284,7 +217,7 @@ class Network:
         
         lr_list= [{'params': self.model.features.parameters(), 'lr': lr[0]}]
         if self.model.reconstruct:
-            lr_list= lr_list + [{'params': self.model.classifier.parameters(), 'lr': lr[1]}]
+            lr_list= lr_list + [{'params': self.model.decoder.parameters(), 'lr': lr[1]}]
         return lr_list
 
 

@@ -184,16 +184,18 @@ def main():
     out_dir_meta = '../experiments/dynamic_capsules_fixed_recon/'
     num_epochs = 108
     dec_after = ['exp',0.96,50,1e-6]
-    lr = 0.001
+    lr = [0,0.001]
     split_num = 0
     im_size = 28
     save_after = 50
     reconstruct = True
+    model_file = '../experiments/dynamic_capsules/ck_0_108_exp_0.001/model_107.pt'
+    just_encoder = True
     # margin_params = {'step':1,'start':0.2}
 
-    strs_append = '_'.join([str(val) for val in [reconstruct,num_epochs]+dec_after+[lr]])
+    strs_append = '_'.join([str(val) for val in [reconstruct,num_epochs]+dec_after+lr])
     
-    out_dir_train = os.path.join(out_dir_meta,'ck_'+str(split_num)+'_last32_'+strs_append)
+    out_dir_train = os.path.join(out_dir_meta,'ck_'+str(split_num)+'_decode_later_'+strs_append)
     print out_dir_train
 
     train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
@@ -224,8 +226,8 @@ def main():
                         None,
                         # [[256,5,2]],
                         caps_layers = 
-                        # None,
-                        [[32,8,9,2],[8,32,6,1]],
+                        None,
+                        # [[32,8,9,2],[8,32,6,1]],
                         r=3,
                         reconstruct=reconstruct)
     
@@ -251,9 +253,10 @@ def main():
                 criterion = 'margin',
                 gpu_id = 1,
                 num_workers = 0,
-                model_file = None,
+                model_file = model_file,
                 epoch_start = 0,
-                network_params = network_params)
+                network_params = network_params,
+                just_encoder = just_encoder)
 
     print train_params
     param_file = os.path.join(out_dir_train,'params.txt')
@@ -263,16 +266,16 @@ def main():
         print str_print
         all_lines.append(str_print)
     util.writeFile(param_file,all_lines)
-    train_model(**train_params)
+    # train_model(**train_params)
 
     train_data = dataset.CK_RS_Dataset(train_file, mean_file, std_file, im_size, data_transforms['val'])
-    save_output_capsules(out_dir_train,
-                num_epochs-1,
-                train_data,
-                test_data,
-                model_name = 'dynamic_capsules',
-                batch_size_val =batch_size_val,
-                network_params = network_params)
+    # save_output_capsules(out_dir_train,
+    #             num_epochs-1,
+    #             train_data,
+    #             test_data,
+    #             model_name = 'dynamic_capsules',
+    #             batch_size_val =batch_size_val,
+    #             network_params = network_params)
 
     save_perturbed_images(out_dir_train,
                 num_epochs - 1,
