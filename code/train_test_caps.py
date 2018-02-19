@@ -123,8 +123,9 @@ def train_model(out_dir_train,
         elif dec_after[0] is 'exp':
             print dec_after
             exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
+        elif dec_after[0] is 'reduce':
+            exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
             
-
     if criterion=='spread':
         margin = margin_params['start']
 
@@ -181,7 +182,7 @@ def train_model(out_dir_train,
                     visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])
 
 
-        if num_epoch % test_after == 0 :
+        if num_epoch % test_after == 0:
             model.eval()
             predictions = []
             labels_all = []
@@ -231,7 +232,10 @@ def train_model(out_dir_train,
             print 'saving',out_file
             torch.save(model,out_file)
 
-        if dec_after is not None and dec_after[0]!='exp':
+        if dec_after is not None and dec_after[0]=='reduce':
+            exp_lr_scheduler
+            exp_lr_scheduler.step(accuracy)
+        elif dec_after is not None and dec_after[0]!='exp':
             exp_lr_scheduler.step()
     
     out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')

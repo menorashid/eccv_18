@@ -29,6 +29,7 @@ class CapsuleLayer(nn.Module):
 
         if self.num_in_capsules != 1:
             self.route_weights = nn.Parameter(torch.randn(num_capsules, self.num_route_nodes, in_channels, out_channels))
+            self.bias = nn.Parameter(torch.Tensor(num_capsules,  out_channels).fill_(0.))
         else:
             self.route_weights=False
             self.capsules = nn.Conv2d(in_channels, num_capsules*out_channels, kernel_size=kernel_size, stride=stride, padding=0) 
@@ -62,6 +63,8 @@ class CapsuleLayer(nn.Module):
                     window = window.view(1,window.size(0),window.size(1)*window.size(2)*window.size(3),1,window.size(4))
                     # print window.size()
                     priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
+                    # print 'priors.size()',priors.size()
+                    # raw_input()
 
                     # window = x[:,:,:,row_start:row_end,col_start:col_end]
                     # print window.size()
@@ -75,7 +78,12 @@ class CapsuleLayer(nn.Module):
                     logits = Variable(torch.zeros(*priors.size())).cuda()
                     for i in range(self.num_iterations):
                         probs = softmax(logits, dim=2)
-                        outputs_temp = self.squash((probs * priors).sum(dim=2, keepdim=True))
+                        bias = self.bias[:,None,None,None,:]
+                        # print 'bias.size()',bias.size()
+                        # t = 
+                        # print 't.size()',t.size()
+                        # raw_input()
+                        outputs_temp = self.squash((probs * priors).sum(dim=2, keepdim=True)+self.bias[:,None,None,None,:])
 
                         if i != self.num_iterations - 1:
                             delta_logits = (priors * outputs_temp).sum(dim=-1, keepdim=True)

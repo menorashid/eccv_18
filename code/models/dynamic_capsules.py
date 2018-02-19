@@ -239,12 +239,12 @@ def main():
     model.cuda()
     
     print("# parameters:", sum(param.numel() for param in model.parameters()))
-    lr = 0.001
+    lr = [0.001]
     decay_rate = 0.96
     decay_steps = 469
     min_lr = 1e-6
-    optimizer = Adam(network.get_lr_list(0.001))
-    exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,0,lr,decay_rate,decay_steps,min_lr)
+    optimizer = Adam(network.get_lr_list(lr))
+    # exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,0,lr,decay_rate,decay_steps,min_lr)
 
     batch_size = 128
     test_batch_size = 128

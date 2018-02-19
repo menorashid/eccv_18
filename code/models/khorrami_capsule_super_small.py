@@ -21,23 +21,23 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
             stride=1
 
         self.features = []
-        self.features.append(nn.Conv2d(1, 64, 5, stride=stride,padding=2))
+        self.features.append(nn.Conv2d(1, 32, 5, stride=stride,padding=2))
         self.features.append(nn.ReLU(True))
         if pool_type=='max':
             self.features.append(nn.MaxPool2d(2,2))
         elif pool_type=='avg':
             self.features.append(nn.AvgPool2d(2,2))
         
-        self.features.append(nn.Conv2d(64, 128, 5, stride=stride,padding=2))
+        self.features.append(nn.Conv2d(32, 64, 5, stride=stride,padding=2))
         self.features.append(nn.ReLU(True))
         if pool_type=='max':
             self.features.append(nn.MaxPool2d(2,2))
         elif pool_type=='avg':
             self.features.append(nn.AvgPool2d(2,2))
         
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
+        self.features.append(CapsuleLayer(32, 1, 64, 8, kernel_size=7, stride=3, num_iterations=r))
         
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r))
+        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r))
         
         self.features = nn.Sequential(*self.features)
         
