@@ -88,6 +88,22 @@ class CK_96_New_Dataset(generic_dataset):
 
         return sample
 
+class Oulu_Static_Dataset(generic_dataset):
+    def __init__(self, text_file, transform=None):
+        super(Oulu_Static_Dataset, self).__init__(text_file,transform)
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        train_file_curr,label = train_file_curr.split(' ')
+        label = int(label)
+        image = scipy.misc.imread(train_file_curr)
+        image = image[:,:,np.newaxis]
+        
+        sample = {'image': image, 'label': label}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
+
 class CK_RS_Dataset(generic_dataset):
     def __init__(self, text_file, mean_file, std_file, im_size, transform=None):
         super(CK_RS_Dataset, self).__init__(text_file,transform)

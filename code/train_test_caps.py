@@ -136,11 +136,11 @@ def train_model(out_dir_train,
 
     for num_epoch in range(epoch_start,num_epochs):
 
-        if criterion=='spread':
-            if num_epoch % margin_params['step'] ==0:
-                i = num_epoch//margin_params['step']
-                inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
-                margin = i*inc+margin_params['start']
+        # if criterion=='spread':
+        #     if num_epoch % margin_params['step'] ==0:
+        #         i = num_epoch//margin_params['step']
+        #         inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
+        #         margin = i*inc+margin_params['start']
 
         for num_iter_train,batch in enumerate(train_dataloader):
             
@@ -162,8 +162,8 @@ def train_model(out_dir_train,
             loss_iter = loss.data[0]
             loss.backward()
             optimizer.step()
-            if dec_after is not None and dec_after[0]=='exp':
-                exp_lr_scheduler.step()
+            # if dec_after is not None and dec_after[0]=='exp':
+            #     exp_lr_scheduler.step()
             
             num_iter = num_epoch*len(train_dataloader)+num_iter_train
             plot_arr[0].append(num_iter); plot_arr[1].append(loss_iter)
@@ -196,8 +196,6 @@ def train_model(out_dir_train,
                 
                 if criterion=='spread':
                     loss = model.spread_loss(output, labels, margin)    
-                elif criterion =='margin' and recons:
-                    loss = model.margin_loss(model(data,labels), labels)     
                 elif criterion =='margin':
                     loss = model.margin_loss(output, labels) 
                 else:    
@@ -233,9 +231,10 @@ def train_model(out_dir_train,
             torch.save(model,out_file)
 
         if dec_after is not None and dec_after[0]=='reduce':
-            exp_lr_scheduler
+            # exp_lr_scheduler
             exp_lr_scheduler.step(accuracy)
-        elif dec_after is not None and dec_after[0]!='exp':
+        elif dec_after is not None :
+        # and dec_after[0]!='exp':
             exp_lr_scheduler.step()
     
     out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
@@ -250,105 +249,7 @@ def train_model(out_dir_train,
     else:
         visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])   
 
-            
-
-def test_model(out_dir_train,
-                model_num,
-                train_data,
-                test_data,
-                model_name = 'alexnet',
-                batch_size_val =None,
-                criterion = nn.CrossEntropyLoss()):
-
-    out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num))
-    util.mkdir(out_dir_results)
-    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
-    log_file = os.path.join(out_dir_results,'log.txt')
-    log_arr=[]
-
-    network = models.get(model_name)
-    # data_transforms = network.data_transforms
-
-    # test_data = dataset(test_file,data_transforms['val'])
-    
-    if batch_size_val is None:
-        batch_size_val = len(test_data)
-    
-
-    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
-                        shuffle=False, num_workers=1)
-
-    torch.cuda.device(0)
-    iter_begin = 0
-    model = torch.load(model_file)
-    model.cuda()
-    model.eval()
-    
-    # criterion = nn.CrossEntropyLoss()
-    
-    predictions = []
-    labels_all = []
-    out_all = []
-
-    for num_iter,batch in enumerate(test_dataloader):
-                
-        # batch = test_dataloader.next() 
-        labels_all.append(batch['label'].numpy())
-
-        data = Variable(batch['image'].cuda())
-        labels = Variable(torch.LongTensor(batch['label']).cuda())
-        
-
-        output = model(data)
-        out = output.data.cpu().numpy()
-        out_all.append(out)
-        
-        predictions.append(np.argmax(out,1))
-        if criterion=='spread':
-            loss = model.spread_loss(model(data), labels, margin)    
-        else:    
-            loss = criterion(output, labels)    
-
-        loss_iter = loss.data[0]
-
-        str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
-        log_arr.append(str_display)
-        print str_display
-        
-
-        util.writeFile(log_file, log_arr)
-    
-    out_all = np.concatenate(out_all,0)
-    predictions = np.concatenate(predictions)
-    labels_all = np.concatenate(labels_all)
-    
-    # y_true = np.zeros((labels_all.shape[0],2))
-    # y_true[labels_all==0,0]=1
-    # y_true[labels_all==1,1]=1
-
-    # f1 = sklearn.metrics.f1_score(labels_all, predictions)
-    # ap = sklearn.metrics.average_precision_score(y_true, out_all)
-    # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
-    accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
-
-    # str_display = 'f1: %.4f' %(f1)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    # str_display = 'ap: %.4f' %(ap)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    # str_display = 'roc_auc: %.4f' %(roc_auc)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    str_display = 'accuracy: %.4f' %(accuracy)
-    print str_display
-    log_arr.append(str_display)
-    
-    util.writeFile(log_file, log_arr)
-
+  
 def save_output_capsules(out_dir_train,
                 model_num,
                 train_data,
@@ -484,17 +385,22 @@ def test_model(out_dir_train,
                 model_num,
                 train_data,
                 test_data,
+                gpu_id,
                 model_name = 'alexnet',
                 batch_size_val =None,
-                criterion = nn.CrossEntropyLoss()):
+                criterion = nn.CrossEntropyLoss(),
+                margin_params  = None,
+                network_params = None,
+                post_pend = ''):
 
-    out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num))
+    out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num)+post_pend)
     util.mkdir(out_dir_results)
     model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
     log_file = os.path.join(out_dir_results,'log.txt')
     log_arr=[]
 
-    network = models.get(model_name)
+    # network = models.get(model_name)
+    # network = models.get(model_name,network_params)
     # data_transforms = network.data_transforms
 
     # test_data = dataset(test_file,data_transforms['val'])
@@ -506,7 +412,7 @@ def test_model(out_dir_train,
     test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
                         shuffle=False, num_workers=1)
 
-    torch.cuda.device(0)
+    torch.cuda.device(gpu_id)
     iter_begin = 0
     model = torch.load(model_file)
     model.cuda()
@@ -517,6 +423,8 @@ def test_model(out_dir_train,
     predictions = []
     labels_all = []
     out_all = []
+    if criterion=='spread':
+        margin = margin_params['start']
 
     for num_iter,batch in enumerate(test_dataloader):
                 
@@ -534,6 +442,8 @@ def test_model(out_dir_train,
         predictions.append(np.argmax(out,1))
         if criterion=='spread':
             loss = model.spread_loss(model(data), labels, margin)    
+        elif criterion=='margin':
+            loss = model.margin_loss(model(data), labels) 
         else:    
             loss = criterion(output, labels)    
 
@@ -550,27 +460,12 @@ def test_model(out_dir_train,
     predictions = np.concatenate(predictions)
     labels_all = np.concatenate(labels_all)
     
-    # y_true = np.zeros((labels_all.shape[0],2))
-    # y_true[labels_all==0,0]=1
-    # y_true[labels_all==1,1]=1
-
-    # f1 = sklearn.metrics.f1_score(labels_all, predictions)
-    # ap = sklearn.metrics.average_precision_score(y_true, out_all)
-    # roc_auc = sklearn.metrics.roc_auc_score(y_true, out_all, average='macro')
+    np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
+    np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
+    np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
+    
     accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
 
-    # str_display = 'f1: %.4f' %(f1)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    # str_display = 'ap: %.4f' %(ap)
-    # print str_display
-    # log_arr.append(str_display)
-    
-    # str_display = 'roc_auc: %.4f' %(roc_auc)
-    # print str_display
-    # log_arr.append(str_display)
-    
     str_display = 'accuracy: %.4f' %(accuracy)
     print str_display
     log_arr.append(str_display)

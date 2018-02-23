@@ -77,21 +77,19 @@ class Dynamic_Capsule_Model_Super(nn.Module):
         use_cuda = next(self.parameters()).is_cuda
 
         b = x.size(0)
-        target_t = target.type(torch.LongTensor)
-        
-        if use_cuda:
-            target_t = target_t.cuda()
         
         rows = torch.LongTensor(np.array(range(b)))
         
         if use_cuda:
             rows = rows.cuda()
+        a_t = torch.diag(torch.index_select(x,1,target))
+        
 
-        a_t = x[rows,target_t]
         a_t_stack = a_t.view(b,1).expand(b,x.size(1)).contiguous() #b,10
+
         u = m-(a_t_stack-x) #b,10
         u = nn.functional.relu(u)**2
-        u[rows,target_t]=0
+        u[rows,target]=0
         loss = torch.sum(u)/b
         
         return loss
@@ -114,7 +112,23 @@ class Dynamic_Capsule_Model_Super(nn.Module):
         left = F.relu(0.9 - classes, inplace=True) ** 2
         right = F.relu(classes - 0.1, inplace=True) ** 2
 
+
         margin_loss = labels * left + 0.5 * (1. - labels) * right
+        # print margin_loss[0]
+
+        if hasattr(self, 'class_weights') and self.class_weights is not None:
+            # print margin_loss.size(),type(margin_loss)
+            
+            # print class_weights.size()
+            if is_cuda:
+                class_weights = torch.autograd.Variable(self.class_weights.cuda())
+            else:
+                class_weights = torch.autograd.Variable(self.class_weights)
+
+            margin_loss = margin_loss*class_weights
+
+        # print margin_loss[0]
+        # raw_input()
         margin_loss = margin_loss.sum()
 
         if self.reconstruct:
@@ -129,9 +143,10 @@ class Dynamic_Capsule_Model_Super(nn.Module):
 
 class Dynamic_Capsule_Model(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,conv_layers,caps_layers,r, reconstruct = False):
+    def __init__(self,n_classes,conv_layers,caps_layers,r, reconstruct = False,class_weights=None):
         super(Dynamic_Capsule_Model, self).__init__()
         print r
+        self.class_weights = class_weights
         self.num_classes = n_classes
         self.reconstruct = reconstruct
         if self.reconstruct:
@@ -246,8 +261,8 @@ def main():
     optimizer = Adam(network.get_lr_list(lr))
     # exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,0,lr,decay_rate,decay_steps,min_lr)
 
-    batch_size = 128
-    test_batch_size = 128
+    batch_size = 4
+    test_batch_size = 4
 
     kwargs = {'num_workers': 1, 'pin_memory': True}
      # if args.cuda else {}
@@ -262,6 +277,9 @@ def main():
     train_loader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, **kwargs)
     test_loader = torch.utils.data.DataLoader(test_data,batch_size=test_batch_size, shuffle=True, **kwargs)
 
+    class_weights = np.array([0.1]*10)
+    print class_weights
+    model.class_weights = class_weights
     disp_after = 1
     num_epochs = 10
     model.train()
@@ -275,19 +293,23 @@ def main():
             
             # print labels.shape, torch.min(labels), torch.max(labels)
             
-            # labels = torch.sparse.torch.eye(num_classes).index_select(dim=0, index=labels)
+            # labels_simple = torch.sparse.torch.eye(num_classes).index_select(dim=0, index=labels)
+            labels_simple = labels
             data, labels = data.cuda(), labels.cuda()
             data, labels = Variable(data), Variable(labels)
             optimizer.zero_grad()
             
-
-            classes, reconstructions = model(data, labels)
+            classes = model(data)
+            # classes, reconstructions = model(data, labels)
             # raw_input()
             # print classes.shape, reconstructions.shape
             # else:
             #     classes, reconstructions = model(data)
 
-            loss = model.margin_loss( classes,labels)
+            loss = model.spread_loss(classes, labels)
+            # margin_loss( classes,labels)
+            # 
+            # 
             # # , reconstructions)
 
             if batch_idx % disp_after ==0:  

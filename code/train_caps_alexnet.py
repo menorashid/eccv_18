@@ -21,15 +21,6 @@ import dataset
 import glob
 import sklearn.metrics
 
-def get_class_weights(train_files):
-    classes = [int(line_curr.split(' ')[1]) for line_curr in train_files]
-    counts = np.array([classes.count(0),classes.count(1)])
-    print counts
-    counts = counts/float(np.sum(counts))
-    counts = 1./counts
-    counts = counts/float(np.sum(counts))
-    print counts
-    return counts
 
 
 def train_model(out_dir_train,

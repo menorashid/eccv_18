@@ -447,11 +447,12 @@ def khorrami_new_aug_method():
 def explore_new_architecture():
     for split_num in range(0,1):
         out_dir_meta = '../experiments/caps_heavy_48/'
-        num_epochs = 1000
+        num_epochs = 200
         # epoch_start = 0
-        dec_after = ['exp',0.96,100,1e-6]
+        # dec_after = ['exp',0.96,3,1e-6]
         # dec_after = ['reduce','max',0.96,5,1e-6]
-        # dec_after = ['step',50,0.5]
+        dec_after = ['step',75,0.1]
+
         lr = [0.001]
         pool_type = 'nopool'
         im_size = 96
@@ -460,8 +461,9 @@ def explore_new_architecture():
         model_file = None
         # '../experiments/khorrami_caps_k7_s3_new_aug/ck_0_max_500_reduce_max_0.96_20_1e-06_0.001/model_499.pt'
         epoch_start = 0
-
-        strs_append = '_'.join([str(val) for val in ['justflip',pool_type,num_epochs]+dec_after+lr])
+        route_num = 5
+        
+        strs_append = '_'.join([str(val) for val in ['all_aug_fix','reduceAtEpoch','r',route_num,pool_type,num_epochs]+dec_after+lr])
         out_dir_train = os.path.join(out_dir_meta,'ck_'+str(split_num)+'_'+strs_append)
         print out_dir_train
 
@@ -478,10 +480,10 @@ def explore_new_architecture():
         data_transforms['train']= transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize(50),
-            transforms.RandomResizedCrop(48),
+            transforms.RandomCrop(48),
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(15),
-            # transforms.ColorJitter(),
+            transforms.ColorJitter(),
             transforms.ToTensor(),
             transforms.Normalize([float(mean_std[0])],[float(mean_std[1])])
         ])
@@ -501,7 +503,7 @@ def explore_new_architecture():
             # [[32,5,2,0],[64,5,2,0]],
             caps_layers = [[32,8,7,3],[8,32,3,1]],
             # [[32,8,5,2],[8,16,5,1]],
-            r=3, init=False)
+            r=route_num, init=False)
         
         batch_size = 128
         batch_size_val = 128
@@ -523,7 +525,7 @@ def explore_new_architecture():
                     dec_after = dec_after, 
                     model_name = model_name,
                     criterion = 'margin',
-                    gpu_id = 1,
+                    gpu_id = 0,
                     num_workers = 0,
                     model_file = model_file,
                     epoch_start = epoch_start,

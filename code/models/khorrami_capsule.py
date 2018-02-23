@@ -10,11 +10,12 @@ from dynamic_capsules import Dynamic_Capsule_Model_Super
 
 class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = False
-        
+        self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
+
         if pool_type=='nopool':
             stride=2
         else:
@@ -47,9 +48,9 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
     #     return x
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r)
+        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights)
 
         if init:
             for idx_m,m in enumerate(model.features):
