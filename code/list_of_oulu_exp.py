@@ -86,11 +86,11 @@ def test_center_crop():
 
 def khorrami_exp_spread():
     for split_num in range(0,1):
-        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_2/'
+        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_1/'
         num_epochs = 200
         epoch_start = 0
-        # dec_after = ['exp',0.96,5,1e-6]
-        dec_after = ['step',100,0.1]
+        # dec_after = ['exp',0.96,3,1e-6]
+        dec_after = ['step',200,0.1]
 
         lr = [0.001]
         pool_type = 'max'
@@ -145,7 +145,7 @@ def khorrami_exp_spread():
         test_data = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val'])
         test_data_center = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val_center'])
         
-        network_params = dict(n_classes=7,pool_type=pool_type,r=2,init=False,class_weights = class_weights)
+        network_params = dict(n_classes=7,pool_type=pool_type,r=1,init=False,class_weights = class_weights)
         
         batch_size = 128
         batch_size_val = 128

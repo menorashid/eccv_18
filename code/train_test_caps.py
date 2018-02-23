@@ -26,6 +26,7 @@ import random
 import dataset
 import numpy as np
 
+
 class Exp_Lr_Scheduler:
     def __init__(self, optimizer,step_curr, init_lr, decay_rate, decay_steps, min_lr=1e-6):
         self.optimizer = optimizer
