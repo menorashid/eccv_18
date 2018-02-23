@@ -188,7 +188,7 @@ def train_model(out_dir_train,
             model.eval()
             predictions = []
             labels_all = []
-    
+            loss_epoch = []
             for num_iter_test,batch in enumerate(test_dataloader):
                 labels_all.append(batch['label'].numpy())
         
@@ -211,13 +211,18 @@ def train_model(out_dir_train,
                     out = output.data.cpu().numpy()
                 predictions.append(np.argmax(out,1))                
                 
+                loss_epoch.append(loss_iter)
 
-                num_iter = num_epoch*len(train_dataloader)+num_iter_test
-                plot_val_arr[0].append(num_iter); plot_val_arr[1].append(loss_iter)
+            loss_iter = np.mean(loss_epoch)
+            
+            num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)
 
-                str_display = 'lr: %.6f, val iter: %d, val loss: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter)
-                log_arr.append(str_display)
-                print str_display
+            plot_val_arr[0].append(num_iter); plot_val_arr[1].append(loss_iter)
+
+            str_display = 'lr: %.6f, val iter: %d, val loss: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter)
+
+            log_arr.append(str_display)
+            print str_display
             labels_all = np.concatenate(labels_all)
             predictions = np.concatenate(predictions)
             accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
@@ -235,7 +240,7 @@ def train_model(out_dir_train,
 
         if dec_after is not None and dec_after[0]=='reduce':
             # exp_lr_scheduler
-            exp_lr_scheduler.step(accuracy)
+            exp_lr_scheduler.step(loss_iter)
         elif dec_after is not None :
         # and dec_after[0]!='exp':
             exp_lr_scheduler.step()

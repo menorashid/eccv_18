@@ -9,6 +9,135 @@ import dataset
 import numpy as np
 
 
+def khorrami_with_val():
+    for split_num in range(9,10):
+        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_3_init_correct_out_val/'
+        route_iter = 3
+        num_epochs = 300
+        epoch_start = 0
+        # dec_after = ['exp',0.96,3,1e-6]
+        # dec_after = ['step',300,0.1]
+        dec_after = ['reduce','min',0.5,20,1e-5]
+        # dec_after = ['reduce','max',0.96,5,1e-6]
+        # 'reduce':
+        #     exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
+
+
+        lr = [0.001]
+        pool_type = 'max'
+        im_size = 96
+        model_name = 'khorrami_capsule'
+        save_after = 50
+        model_file = None    
+        # type_data = 'single_im'
+        type_data = 'three_im_no_neutral_just_strong_True'; n_classes = 6;
+        train_test_folder = 'train_test_files_preprocess_maheen_vl_gray'
+
+        criterion = 'spread'
+        margin_params = dict(end_epoch=int(num_epochs*0.9),decay_steps=5,max_margin = 0.2)
+        
+
+        strs_append = '_'.join([str(val) for val in ['all_aug',pool_type,num_epochs]+dec_after+lr])
+        out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
+        print out_dir_train
+
+        train_file = os.path.join('../data/Oulu_CASIA',train_test_folder,type_data,'train_'+str(split_num)+'.txt')
+        val_file = os.path.join('../data/Oulu_CASIA',train_test_folder,type_data,'val_'+str(split_num)+'.txt')
+        test_file = os.path.join('../data/Oulu_CASIA',train_test_folder,type_data,'test_'+str(split_num)+'.txt')
+        mean_std_file = os.path.join('../data/Oulu_CASIA',train_test_folder,type_data,'train_'+str(split_num)+'_mean_std_val_0_1.npy')
+        
+        class_weights = util.get_class_weights(util.readLinesFromFile(train_file))
+
+        mean_std = np.load(mean_std_file)
+
+        print mean_std
+
+        data_transforms = {}
+        data_transforms['train']= transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((102,102)),
+            transforms.RandomCrop(im_size),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomRotation(15),
+            transforms.ColorJitter(),
+            transforms.ToTensor(),
+            transforms.Normalize([float(mean_std[0])],[float(mean_std[1])])
+        ])
+        data_transforms['val']= transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((im_size,im_size)),
+            transforms.ToTensor(),
+            transforms.Normalize([float(mean_std[0])],[float(mean_std[1])])
+            ])
+        data_transforms['val_center']= transforms.Compose([
+            transforms.ToPILImage(),
+            transforms.Resize((102,102)),
+            transforms.CenterCrop(im_size),
+            transforms.ToTensor(),
+            transforms.Normalize([float(mean_std[0])],[float(mean_std[1])])
+            ])
+
+        train_data = dataset.Oulu_Static_Dataset(train_file, data_transforms['train'])
+        val_data = dataset.Oulu_Static_Dataset(val_file, data_transforms['val'])
+        test_data = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val'])
+        test_data_center = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val_center'])
+        
+        network_params = dict(n_classes=n_classes,pool_type=pool_type,r=route_iter,init=True,class_weights = class_weights)
+        
+        batch_size = 128
+        batch_size_val = 128
+
+
+        util.makedirs(out_dir_train)
+        
+        train_params = dict(out_dir_train = out_dir_train,
+                    train_data = train_data,
+                    test_data = val_data,
+                    batch_size = batch_size,
+                    batch_size_val = batch_size_val,
+                    num_epochs = num_epochs,
+                    save_after = save_after,
+                    disp_after = 1,
+                    plot_after = 10,
+                    test_after = 1,
+                    lr = lr,
+                    dec_after = dec_after, 
+                    model_name = model_name,
+                    criterion = criterion,
+                    gpu_id = 0,
+                    num_workers = 0,
+                    model_file = model_file,
+                    epoch_start = epoch_start,
+                    margin_params = margin_params,
+                    network_params = network_params)
+
+        print train_params
+        param_file = os.path.join(out_dir_train,'params.txt')
+        all_lines = []
+        for k in train_params.keys():
+            str_print = '%s: %s' % (k,train_params[k])
+            print str_print
+            all_lines.append(str_print)
+        util.writeFile(param_file,all_lines)
+
+        train_model(**train_params)
+
+        test_params = dict(out_dir_train = out_dir_train,
+                model_num = num_epochs-1, 
+                train_data = train_data,
+                test_data = test_data,
+                gpu_id = 0,
+                model_name = model_name,
+                batch_size_val = batch_size_val,
+                criterion = criterion,
+                margin_params = margin_params,
+                network_params = network_params)
+        test_model(**test_params)
+        
+        test_params['test_data'] = test_data_center
+        test_params['post_pend'] = '_center'
+        test_model(**test_params)
+
 def test_center_crop():
     
     split_num = 0
@@ -420,6 +549,7 @@ def explore_new_architecture():
 
 
 def main():
+    khorrami_with_val()
     # test_center_crop()
     # test_center_crop()
     # type_data = 'single_im'
@@ -428,7 +558,7 @@ def main():
     # class_weights = util.get_class_weights(util.readLinesFromFile(train_file))
     # print class_weights
 
-    khorrami_exp_spread()
+    # khorrami_exp_spread()
     # explore_new_architecture()
     # khorrami_new_aug_method()
 

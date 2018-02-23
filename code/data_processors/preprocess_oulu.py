@@ -37,6 +37,40 @@ def make_fold_files():
         util.writeFile(out_file_train,train_subs)
         util.writeFile(out_file_test,test_subs)
 
+def make_fold_files_with_val():
+    dir_meta = '../data/Oulu_CASIA'
+    out_dir_files = os.path.join(dir_meta,'subs')
+    util.mkdir(out_dir_files)
+
+    dir_meta_subjects = glob.glob(os.path.join(dir_meta,'PreProcess_Img/NI_Acropped','*'))
+    range_subjects = ['P'+'0'*(3-len(str(num)))+str(num) for num in range(1,81)]
+
+    num_folds = 10
+    folds = []
+    for i in range(num_folds):
+        fold_curr = range_subjects[i::num_folds]
+        folds.append(fold_curr)
+
+    for i in range(num_folds):
+        out_file_train = os.path.join(out_dir_files,'train_subs_'+str(i)+'.txt')
+        out_file_val = os.path.join(out_dir_files,'val_subs_'+str(i)+'.txt')
+        out_file_test = os.path.join(out_dir_files,'test_subs_'+str(i)+'.txt')
+        train_subs =[]
+        # print i, (i+1)%10
+        val_fold = (i+1)%num_folds
+        for idx_fold_curr,fold_curr in enumerate(folds):
+            if idx_fold_curr!=i and idx_fold_curr!=val_fold:
+                train_subs = train_subs+ fold_curr 
+        test_subs = folds[i]
+        val_subs = folds[val_fold]
+        
+        util.writeFile(out_file_train,train_subs)
+        util.writeFile(out_file_test,test_subs)
+        util.writeFile(out_file_val,val_subs)
+
+
+
+
 def save_mean_std_vals(dir_files):
     im_resize = [96,96]
 
@@ -66,10 +100,13 @@ def save_mean_std_vals(dir_files):
         print mean_std.shape, mean_std
         np.save(out_file,mean_std)
 
-def write_train_test_files_no_neutral():
+def write_train_test_files_no_neutral(val=False):
     dir_meta = '../data/Oulu_CASIA'
     out_dir_files = os.path.join(dir_meta,'train_test_files_preprocess_maheen_vl_gray')
-    out_dir_single_im = os.path.join(out_dir_files,'three_im_no_neutral_just_strong')
+    # subs_dir = out_dir_files
+    subs_dir = os.path.join(dir_meta,'subs')
+
+    out_dir_single_im = os.path.join(out_dir_files,'three_im_no_neutral_just_strong_'+str(val))
     util.mkdir(out_dir_single_im)
     
     expressions = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
@@ -84,12 +121,15 @@ def write_train_test_files_no_neutral():
 
     num_folds = 10
     num_select = 3
+    type_files = ['train','test']
+    if val:
+        type_files.append('val')
 
-    for pre_str in ['train','test']:
+    for pre_str in type_files:
         subs_file_pre = pre_str+'_subs_'
         out_file_pre = pre_str+'_'
         for fold_num in range(num_folds):
-            train_subs = util.readLinesFromFile(os.path.join(out_dir_files,subs_file_pre+str(fold_num)+'.txt'))
+            train_subs = util.readLinesFromFile(os.path.join(subs_dir,subs_file_pre+str(fold_num)+'.txt'))
             dir_ims_curr = [dir_curr for dir_curr in dir_ims if dir_curr.split('/')[-2] in train_subs]
 
             out_file_curr = os.path.join(out_dir_single_im,out_file_pre+str(fold_num)+'.txt')
@@ -276,8 +316,11 @@ def save_cropped_images_script():
 
 
 def main():
-    # write_train_test_files()
+    # make_fold_files_with_val()
     # return
+
+    write_train_test_files_no_neutral(val=True)
+    return
     # save_cropped_images_script()
     # return
     dir_server = '/disk3'
