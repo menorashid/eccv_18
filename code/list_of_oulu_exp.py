@@ -85,23 +85,28 @@ def test_center_crop():
     test_model(**test_params)
 
 def khorrami_exp_spread():
-    for split_num in range(0,1):
-        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_1/'
-        num_epochs = 200
+    for split_num in range(0,10):
+        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_3_init_correct_out/'
+        route_iter = 3
+        num_epochs = 300
         epoch_start = 0
         # dec_after = ['exp',0.96,3,1e-6]
-        dec_after = ['step',200,0.1]
+        dec_after = ['step',300,0.1]
+
 
         lr = [0.001]
         pool_type = 'max'
         im_size = 96
         model_name = 'khorrami_capsule'
         save_after = num_epochs
-        model_file=None    
+        model_file = None    
         # type_data = 'single_im'
-        type_data = 'three_im_no_neutral_just_strong'
+        type_data = 'three_im_no_neutral_just_strong'; n_classes = 6;
+
         criterion = 'spread'
-        margin_params = {'start':0.2}
+        margin_params = dict(end_epoch=int(num_epochs*0.9),decay_steps=5,max_margin = 0.2)
+        
+
         strs_append = '_'.join([str(val) for val in ['all_aug',pool_type,num_epochs]+dec_after+lr])
         out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
         print out_dir_train
@@ -145,7 +150,7 @@ def khorrami_exp_spread():
         test_data = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val'])
         test_data_center = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val_center'])
         
-        network_params = dict(n_classes=7,pool_type=pool_type,r=1,init=False,class_weights = class_weights)
+        network_params = dict(n_classes=n_classes,pool_type=pool_type,r=route_iter,init=True,class_weights = class_weights)
         
         batch_size = 128
         batch_size_val = 128

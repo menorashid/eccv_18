@@ -73,26 +73,26 @@ class Dynamic_Capsule_Model_Super(nn.Module):
                 return classes
 
 
-    def spread_loss(self,x,target,m):
-        use_cuda = next(self.parameters()).is_cuda
+    # def spread_loss(self,x,target,m):
+    #     use_cuda = next(self.parameters()).is_cuda
 
-        b = x.size(0)
+    #     b = x.size(0)
         
-        rows = torch.LongTensor(np.array(range(b)))
+    #     rows = torch.LongTensor(np.array(range(b)))
         
-        if use_cuda:
-            rows = rows.cuda()
-        a_t = torch.diag(torch.index_select(x,1,target))
+    #     if use_cuda:
+    #         rows = rows.cuda()
+    #     a_t = torch.diag(torch.index_select(x,1,target))
         
 
-        a_t_stack = a_t.view(b,1).expand(b,x.size(1)).contiguous() #b,10
+    #     a_t_stack = a_t.view(b,1).expand(b,x.size(1)).contiguous() #b,10
 
-        u = m-(a_t_stack-x) #b,10
-        u = nn.functional.relu(u)**2
-        u[rows,target]=0
-        loss = torch.sum(u)/b
+    #     u = m-(a_t_stack-x) #b,10
+    #     u = nn.functional.relu(u)**2
+    #     u[rows,target]=0
+    #     loss = torch.sum(u)/b
         
-        return loss
+    #     return loss
 
     def margin_loss(self,  classes,labels):
         if self.reconstruct:

@@ -14,15 +14,16 @@ class Spread_Loss(nn.Module):
         ratio = self.max_margin/self.init_margin
         self.decay_rate = ratio ** (1/float(num_steps))
         self.decay_steps = decay_steps
+        self.margin = self.init_margin
         
 
     def forward(self,x,target,epoch_num):
         use_cuda = x.is_cuda
-        print use_cuda
+        
         # next(self.parameters()).is_cuda
         
-        m = self.init_margin * self.decay_rate **(epoch_num/self.decay_steps)
-        m = min(m,self.max_margin)
+        self.margin = self.init_margin * self.decay_rate **(epoch_num/self.decay_steps)
+        self.margin = min(self.margin,self.max_margin)
         b = x.size(0)
         
         rows = torch.LongTensor(np.array(range(b)))
@@ -33,7 +34,7 @@ class Spread_Loss(nn.Module):
 
         a_t_stack = a_t.view(b,1).expand(b,x.size(1)).contiguous() #b,10
 
-        u = m-(a_t_stack-x) #b,10
+        u = self.margin-(a_t_stack-x) #b,10
         u = nn.functional.relu(u)**2
         u[rows,target]=0
         loss = torch.sum(u)/b

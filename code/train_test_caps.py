@@ -25,7 +25,7 @@ from helpers import util,visualize,augmenters
 import random
 import dataset
 import numpy as np
-
+from models.spread_loss import Spread_Loss
 
 class Exp_Lr_Scheduler:
     def __init__(self, optimizer,step_curr, init_lr, decay_rate, decay_steps, min_lr=1e-6):
@@ -128,7 +128,8 @@ def train_model(out_dir_train,
             exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
             
     if criterion=='spread':
-        margin = margin_params['start']
+        # margin = margin_params['start']
+        criterion = Spread_Loss(**margin_params)
 
     recons = False
     # print network_params
@@ -137,7 +138,7 @@ def train_model(out_dir_train,
 
     for num_epoch in range(epoch_start,num_epochs):
 
-        # if criterion=='spread':
+        # if isinstance(criterion,Spread_Loss):
         #     if num_epoch % margin_params['step'] ==0:
         #         i = num_epoch//margin_params['step']
         #         inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
@@ -149,8 +150,8 @@ def train_model(out_dir_train,
             labels = Variable(torch.LongTensor(batch['label']).cuda())
             optimizer.zero_grad()
 
-            if criterion=='spread':
-                loss = model.spread_loss(model(data), labels, margin) 
+            if isinstance(criterion,Spread_Loss):
+                loss = criterion(model(data), labels, num_epoch) 
             elif criterion =='margin' and recons:
                 # print 'RECONS'
                 loss = model.margin_loss(model(data,labels), labels) 
@@ -168,8 +169,8 @@ def train_model(out_dir_train,
             
             num_iter = num_epoch*len(train_dataloader)+num_iter_train
             plot_arr[0].append(num_iter); plot_arr[1].append(loss_iter)
-            if criterion=='spread':
-                str_display = 'margin: %.3f, lr: %.6f, iter: %d, loss: %.4f' %(margin,optimizer.param_groups[-1]['lr'],num_iter,loss_iter)    
+            if isinstance(criterion,Spread_Loss):
+                str_display = 'margin: %.3f, lr: %.6f, iter: %d, loss: %.4f' %(criterion.margin,optimizer.param_groups[-1]['lr'],num_iter,loss_iter)    
             else:
                 str_display = 'lr: %.6f, iter: %d, loss: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter)
             log_arr.append(str_display)
@@ -195,8 +196,9 @@ def train_model(out_dir_train,
                 labels = Variable(torch.LongTensor(batch['label']).cuda())
                 output = model(data)
                 
-                if criterion=='spread':
-                    loss = model.spread_loss(output, labels, margin)    
+                if isinstance(criterion,Spread_Loss):
+                    loss = criterion(output, labels, num_epoch) 
+                    # model.spread_loss(output, labels, margin)    
                 elif criterion =='margin':
                     loss = model.margin_loss(output, labels) 
                 else:    
@@ -321,7 +323,7 @@ def save_output_capsules(out_dir_train,
         out_all.append(out)
         caps_all.append(caps)
         predictions.append(np.argmax(out,1))
-        # if criterion=='spread':
+        # if isinstance(criterion,Spread_Loss):
         #     loss = model.spread_loss(model(data), labels, margin)    
         # else:    
         loss = criterion(output, labels)    
@@ -425,7 +427,8 @@ def test_model(out_dir_train,
     labels_all = []
     out_all = []
     if criterion=='spread':
-        margin = margin_params['start']
+        criterion = Spread_Loss(**margin_params)
+        
 
     for num_iter,batch in enumerate(test_dataloader):
                 
@@ -441,8 +444,8 @@ def test_model(out_dir_train,
         out_all.append(out)
         
         predictions.append(np.argmax(out,1))
-        if criterion=='spread':
-            loss = model.spread_loss(model(data), labels, margin)    
+        if isinstance(criterion,Spread_Loss):
+            loss = criterion(model(data), labels, model_num)    
         elif criterion=='margin':
             loss = model.margin_loss(model(data), labels) 
         else:    
