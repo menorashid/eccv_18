@@ -104,6 +104,30 @@ class Oulu_Static_Dataset(generic_dataset):
 
         return sample
 
+
+class Disfa_10_6_Dataset(generic_dataset):
+    def __init__(self, text_file, transform=None):
+        super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        info = train_file_curr.split(' ')
+        train_file_curr = info[0]
+        labels = [int(val) for val in info[1:]]
+        labels = np.array(labels)
+        # .astype('float')
+        labels[labels>0]=1
+        # labels[labels<0.5]=0.1
+
+
+        image = scipy.misc.imread(train_file_curr)
+        
+        sample = {'image': image, 'label': labels}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
+
+
 class CK_RS_Dataset(generic_dataset):
     def __init__(self, text_file, mean_file, std_file, im_size, transform=None):
         super(CK_RS_Dataset, self).__init__(text_file,transform)

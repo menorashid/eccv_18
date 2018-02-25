@@ -10,20 +10,21 @@ import numpy as np
 
 
 def khorrami_with_val():
-    for split_num in range(9,10):
-        out_dir_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_3_init_correct_out_val/'
+    for split_num in range(1,10):
+    # range(0,10):
+        out_dir_meta = '../experiments/oulu_r3_hopeful/'
         route_iter = 3
-        num_epochs = 300
+        num_epochs = 500
         epoch_start = 0
         # dec_after = ['exp',0.96,3,1e-6]
-        # dec_after = ['step',300,0.1]
-        dec_after = ['reduce','min',0.5,20,1e-5]
+        dec_after = ['step',500,0.1]
+        # dec_after = ['reduce','min',0.1,50,1e-4]
         # dec_after = ['reduce','max',0.96,5,1e-6]
         # 'reduce':
         #     exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
 
 
-        lr = [0.001]
+        lr = [0.0001]
         pool_type = 'max'
         im_size = 96
         model_name = 'khorrami_capsule'
@@ -35,9 +36,10 @@ def khorrami_with_val():
 
         criterion = 'spread'
         margin_params = dict(end_epoch=int(num_epochs*0.9),decay_steps=5,max_margin = 0.2)
-        
+        # None
+        # criterion = 'margin'
 
-        strs_append = '_'.join([str(val) for val in ['all_aug',pool_type,num_epochs]+dec_after+lr])
+        strs_append = '_'.join([str(val) for val in ['wdecay','all_aug',pool_type,num_epochs]+dec_after+lr])
         out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
         print out_dir_train
 
@@ -55,7 +57,7 @@ def khorrami_with_val():
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
             transforms.ToPILImage(),
-            transforms.Resize((102,102)),
+            transforms.Resize((110,110)),
             transforms.RandomCrop(im_size),
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(15),
@@ -71,7 +73,7 @@ def khorrami_with_val():
             ])
         data_transforms['val_center']= transforms.Compose([
             transforms.ToPILImage(),
-            transforms.Resize((102,102)),
+            transforms.Resize((110,110)),
             transforms.CenterCrop(im_size),
             transforms.ToTensor(),
             transforms.Normalize([float(mean_std[0])],[float(mean_std[1])])
@@ -82,7 +84,7 @@ def khorrami_with_val():
         test_data = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val'])
         test_data_center = dataset.Oulu_Static_Dataset(test_file,  data_transforms['val_center'])
         
-        network_params = dict(n_classes=n_classes,pool_type=pool_type,r=route_iter,init=True,class_weights = class_weights)
+        network_params = dict(n_classes=n_classes,pool_type=pool_type,r=route_iter,init=False,class_weights = class_weights)
         
         batch_size = 128
         batch_size_val = 128
@@ -123,7 +125,7 @@ def khorrami_with_val():
         train_model(**train_params)
 
         test_params = dict(out_dir_train = out_dir_train,
-                model_num = num_epochs-1, 
+                model_num = num_epochs - 1, 
                 train_data = train_data,
                 test_data = test_data,
                 gpu_id = 0,
@@ -137,6 +139,23 @@ def khorrami_with_val():
         test_params['test_data'] = test_data_center
         test_params['post_pend'] = '_center'
         test_model(**test_params)
+
+        if dec_after[0]=='reduce':
+            test_params = dict(out_dir_train = out_dir_train,
+                    model_num = 'bestVal', 
+                    train_data = train_data,
+                    test_data = test_data,
+                    gpu_id = 0,
+                    model_name = model_name,
+                    batch_size_val = batch_size_val,
+                    criterion = criterion,
+                    margin_params = margin_params,
+                    network_params = network_params)
+            test_model(**test_params)
+            
+            test_params['test_data'] = test_data_center
+            test_params['post_pend'] = '_center'
+            test_model(**test_params)
 
 def test_center_crop():
     

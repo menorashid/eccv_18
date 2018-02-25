@@ -1,6 +1,7 @@
 import os
 from helpers import util
 import glob
+import numpy as np
 
 def delete_some_files():
 	print 'hello'
@@ -33,8 +34,7 @@ def delete_some_files():
 	all_files = glob.glob(os.path.join(problem_dir,'model.ckpt-*'))
 	print 'FILES After',len(all_files)
 
-
-def main():
+def some_tf_script():
 	out_file_sh = 'capsules/test_em_all.sh'
 	all_commands = []
 	for model_num in range(100,1100,100):
@@ -45,6 +45,66 @@ def main():
 		all_commands.append(command_curr)
 
 	util.writeFile(out_file_sh,all_commands)
+
+def main():
+
+	labels = np.array([[0,1,0,1],[1,0,0,0],[0,0,1,1]])
+	predictions = np.random.rand(3,4)
+	print predictions
+	print labels
+
+	m = 0.1
+
+	a_t_stack = np.ones((labels.shape[0],labels.shape[1],labels.shape[1]))
+	print a_t_stack.shape
+	mul = labels[:,:,np.newaxis]
+	mask = 1-labels[:,np.newaxis,:]
+	print mul.shape
+	a_t_stack = a_t_stack * mul
+	# for dim in range(a_t_stack.shape[0]):
+	# 	print dim
+	# 	print a_t_stack[dim,:,:]
+
+	pred_stack = np.tile(predictions[:,np.newaxis,:],(1,labels.shape[1],1))
+	print pred_stack.shape
+	for dim in range(a_t_stack.shape[0]):
+		print dim
+		print pred_stack[dim,:,:]
+
+	a_t_stack = a_t_stack*np.tile(predictions[:,:,np.newaxis],(1,1,labels.shape[1]))
+	for dim in range(a_t_stack.shape[0]):
+		print dim
+		print a_t_stack[dim,:,:]
+
+	diff = m-(a_t_stack - pred_stack)
+	for dim in range(a_t_stack.shape[0]):
+		print dim
+		print diff[dim,:,:]
+
+	# diff[diff<0]=0
+	# for dim in range(a_t_stack.shape[0]):
+	# 	print dim
+	# 	print diff[dim,:,:]
+
+	diff = diff*mul
+	for dim in range(a_t_stack.shape[0]):
+		print dim
+		print diff[dim,:,:]
+
+	diff = diff*mask
+	for dim in range(a_t_stack.shape[0]):
+		print dim
+		print diff[dim,:,:]
+	
+
+
+
+
+
+
+
+	
+
 
 
 

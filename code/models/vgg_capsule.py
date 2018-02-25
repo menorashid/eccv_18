@@ -96,17 +96,22 @@ def saving_vgg_conv():
     import VGG_FACE
 
     model = VGG_FACE.VGG_FACE
-    # model.load_state_dict(torch.load('../../data/vgg_face_torch/VGG_FACE.pth'))
-    print model
+    print list(model.children())[0].weight.data[0,0]
+    model.load_state_dict(torch.load('../../data/vgg_face_torch/VGG_FACE.pth'))
+    print list(model.children())[0].weight.data[0,0]
+
     conv_layers = list(model.children())
     conv_layers = conv_layers[:30]
     model = nn.Sequential(*conv_layers)
-    print model
+    
+    print list(model.children())[0].weight.data[0,0]
 
-    torch.save(model,'../../data/vgg_face_torch/pytorch_vgg_face_just_conv.pth')
+    torch.save(model,'./pytorch_vgg_face_just_conv.pth')
 
 
 def main():
+    saving_vgg_conv()
+    return
     import numpy as np
     import torch
     from torch.autograd import Variable

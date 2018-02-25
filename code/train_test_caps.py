@@ -47,6 +47,28 @@ class Exp_Lr_Scheduler:
                 param_group['lr'] = new_lr
             # print param_group['lr']
 
+def get_auc(pred,gt):
+
+    # print pred.shape
+    # print gt.shape
+    # print pred
+    # print gt
+    # ap = []
+    # gt[gt>0.5]=1
+    # gt[gt<0.5]=0
+    print pred
+    print gt
+
+    pred[pred>0.5]=1
+    pred[pred<0.5]=0
+    # print pred
+
+    ap = sklearn.metrics.f1_score(gt, pred,average='macro')
+
+    # for idx in range(gt.shape[1]):
+    #     ap = ap+[sklearn.metrics.average_precision_score(gt[:,idx], pred[:,idx])]
+    return ap
+
 def train_model(out_dir_train,
                 train_data,
                 test_data,
@@ -114,7 +136,7 @@ def train_model(out_dir_train,
     model.train(True)
     
     # optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
-    optimizer = torch.optim.Adam(network.get_lr_list(lr))
+    optimizer = torch.optim.Adam(network.get_lr_list(lr),weight_decay=0.000005)
     print dec_after
     if dec_after is not None:
         print dec_after
@@ -125,6 +147,7 @@ def train_model(out_dir_train,
             print dec_after
             exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
         elif dec_after[0] is 'reduce':
+            best_val = 0
             exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
             
     if criterion=='spread':
@@ -145,9 +168,14 @@ def train_model(out_dir_train,
         #         margin = i*inc+margin_params['start']
 
         for num_iter_train,batch in enumerate(train_dataloader):
-            
+
             data = Variable(batch['image'].cuda())
-            labels = Variable(torch.LongTensor(batch['label']).cuda())
+            # print torch.min(data),torch.max(data)
+            
+            if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                labels = Variable(batch['label'].float().cuda())
+            else:
+                labels = Variable(torch.LongTensor(batch['label']).cuda())
             optimizer.zero_grad()
 
             if isinstance(criterion,Spread_Loss):
@@ -158,6 +186,8 @@ def train_model(out_dir_train,
             elif criterion =='margin':
                 loss = model.margin_loss(model(data), labels) 
             else:    
+                # out = model(data)
+                # print torch.min(out),torch.max(out)
                 loss = criterion(model(data), labels)    
             
 
@@ -193,7 +223,10 @@ def train_model(out_dir_train,
                 labels_all.append(batch['label'].numpy())
         
                 data = Variable(batch['image'].cuda())
-                labels = Variable(torch.LongTensor(batch['label']).cuda())
+                if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                    labels = Variable(batch['label'].float().cuda())
+                else:
+                    labels = Variable(torch.LongTensor(batch['label']).cuda())
                 output = model(data)
                 
                 if isinstance(criterion,Spread_Loss):
@@ -209,7 +242,10 @@ def train_model(out_dir_train,
                     out = output[0].data.cpu().numpy()
                 else:
                     out = output.data.cpu().numpy()
-                predictions.append(np.argmax(out,1))                
+                if len(labels.size())>1:
+                    predictions.append(out)
+                else:
+                    predictions.append(np.argmax(out,1))                
                 
                 loss_epoch.append(loss_iter)
 
@@ -225,7 +261,12 @@ def train_model(out_dir_train,
             print str_display
             labels_all = np.concatenate(labels_all)
             predictions = np.concatenate(predictions)
-            accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+            print labels_all.shape,predictions.shape
+            if len(labels_all.shape)>1:
+                accuracy = get_auc(predictions,labels_all)
+            else:
+                accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
             str_display = 'val accuracy: %.4f' %(accuracy)
             log_arr.append(str_display)
             print str_display
@@ -240,7 +281,13 @@ def train_model(out_dir_train,
 
         if dec_after is not None and dec_after[0]=='reduce':
             # exp_lr_scheduler
+            if accuracy>=best_val:
+                best_val = accuracy
+                out_file_best = os.path.join(out_dir_train,'model_bestVal.pt')
+                print 'saving',out_file_best
+                torch.save(model,out_file_best)            
             exp_lr_scheduler.step(loss_iter)
+
         elif dec_after is not None :
         # and dec_after[0]!='exp':
             exp_lr_scheduler.step()
@@ -441,7 +488,11 @@ def test_model(out_dir_train,
         labels_all.append(batch['label'].numpy())
 
         data = Variable(batch['image'].cuda())
-        labels = Variable(torch.LongTensor(batch['label']).cuda())
+        if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+            labels = Variable(batch['label'].float().cuda())
+        else:
+            labels = Variable(torch.LongTensor(batch['label']).cuda())
+
         
 
         output = model(data)
@@ -450,13 +501,19 @@ def test_model(out_dir_train,
         
         predictions.append(np.argmax(out,1))
         if isinstance(criterion,Spread_Loss):
-            loss = criterion(model(data), labels, model_num)    
+            if isinstance(model_num,int):
+                loss = criterion(model(data), labels, model_num)    
+                loss_iter = loss.data[0]
+            else:
+                loss_iter = 0
+
         elif criterion=='margin':
             loss = model.margin_loss(model(data), labels) 
+            loss_iter = loss.data[0]
         else:    
             loss = criterion(output, labels)    
-
-        loss_iter = loss.data[0]
+            loss_iter = loss.data[0]
+        
 
         str_display = 'iter: %d, val loss: %.4f' %(num_iter,loss_iter)
         log_arr.append(str_display)
@@ -473,7 +530,10 @@ def test_model(out_dir_train,
     np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
     np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
     
-    accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+    if len(labels_all.shape)>1:
+        accuracy = get_auc(out_all,labels_all)
+    else:
+        accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
 
     str_display = 'accuracy: %.4f' %(accuracy)
     print str_display
