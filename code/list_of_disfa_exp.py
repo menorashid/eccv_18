@@ -12,11 +12,11 @@ import numpy as np
 def khorrami_margin():
     for split_num in [16]:
     # range(0,10):
-        out_dir_meta = '../experiments/disfa/disfa_margin'
+        out_dir_meta = '../experiments/disfa/disfa_margin_linear'
         util.makedirs(out_dir_meta)
         
         route_iter = 3
-        num_epochs = 20
+        num_epochs = 200
         epoch_start = 0
         # dec_after = ['exp',0.96,3,1e-6]
         dec_after = ['step',100,0.1]
@@ -52,7 +52,7 @@ def khorrami_margin():
         mean_std_file = os.path.join('../data/disfa',train_test_folder,'mean_std.npy')
         test_file = train_file
         # mean_std = np.load(mean_std_file)
-        mean_std = np.array([[129.1863,104.7624,93.5940],[1.,1.,1.]])
+        mean_std = np.array([[93.5940,104.7624,129.1863],[1.,1.,1.]])
         print mean_std
 
         data_transforms = {}
@@ -62,16 +62,16 @@ def khorrami_margin():
             # transforms.RandomCrop(im_size),
             # transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            # lambda x: x*255,
-            # transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+            lambda x: x*255,
+            transforms.Normalize(mean_std[0,:],mean_std[1,:]),
             # lambda x: x[[2, 1, 0],:, : ]
         ])
         data_transforms['val']= transforms.Compose([
             transforms.ToPILImage(),
             transforms.Resize((im_size,im_size)),
             transforms.ToTensor(),
-            # lambda x: x*255,
-            # transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+            lambda x: x*255,
+            transforms.Normalize(mean_std[0,:],mean_std[1,:]),
             # lambda x: x[ [2, 1, 0],:, :]
             ])
         data_transforms['val_center']= transforms.Compose([
@@ -79,19 +79,19 @@ def khorrami_margin():
             transforms.Resize((im_resize,im_resize)),
             transforms.CenterCrop(im_size),
             transforms.ToTensor(),
-            # lambda x: x*255,
-            # transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+            lambda x: x*255,
+            transforms.Normalize(mean_std[0,:],mean_std[1,:]),
             # lambda x: x[[2, 1, 0],:, : ]
             ])
 
-        train_data = dataset.Disfa_10_6_Dataset(train_file, data_transforms['train'])
-        test_data = dataset.Disfa_10_6_Dataset(test_file,  data_transforms['val'])
-        test_data_center = dataset.Disfa_10_6_Dataset(test_file,  data_transforms['val_center'])
+        train_data = dataset.Disfa_10_6_Dataset(train_file, True, data_transforms['train'])
+        test_data = dataset.Disfa_10_6_Dataset(test_file,  True, data_transforms['val'])
+        test_data_center = dataset.Disfa_10_6_Dataset(test_file, True, data_transforms['val_center'])
         
         network_params = dict(n_classes=n_classes, r=route_iter,init=True,class_weights = class_weights)
         
-        batch_size = 16
-        batch_size_val = 16
+        batch_size = 1
+        batch_size_val = 1
 
 
         util.makedirs(out_dir_train)
@@ -105,7 +105,7 @@ def khorrami_margin():
                     save_after = save_after,
                     disp_after = 1,
                     plot_after = 10,
-                    test_after = 4,
+                    test_after = 10,
                     lr = lr,
                     dec_after = dec_after, 
                     model_name = model_name,

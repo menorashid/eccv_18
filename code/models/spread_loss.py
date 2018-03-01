@@ -4,8 +4,15 @@ import numpy as np
 from torch.autograd import Variable
     
 class Spread_Loss(nn.Module):
-    def __init__(self, end_epoch,decay_steps,init_margin = 0.2, max_margin = 0.9):
+    def __init__(self, end_epoch=100,decay_steps=5,init_margin = 0.2, max_margin = 0.9):
         super(Spread_Loss, self).__init__()        
+
+        print end_epoch,decay_steps,init_margin, max_margin
+
+        # end_epoch = int(end_epoch)
+        # decay_steps = int(decay_steps)
+        # init_margin = float(init_margin)
+        # max_margin = float(max_margin)
 
         num_steps = end_epoch//decay_steps
         
@@ -129,7 +136,7 @@ def main():
     labels = np.array([[0,1,0,1],[1,0,0,0],[0,0,1,1]])
     predictions = np.random.rand(3,4)
     sanity_check(labels,predictions)
-    
+
     labels = Variable(torch.Tensor(labels))
     output = Variable(torch.Tensor(predictions))
     criterion = Spread_Loss_Multi(50,5,max_margin=0.1)

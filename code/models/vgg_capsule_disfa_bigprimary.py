@@ -21,9 +21,9 @@ class Vgg_Capsule_Disfa(Dynamic_Capsule_Model_Super):
         
         self.features = []
         
-        self.features.append(CapsuleLayer(32, 1, 512, 8, kernel_size=3, stride=2, num_iterations=r))
+        self.features.append(CapsuleLayer(64, 1, 512, 8, kernel_size=3, stride=2, num_iterations=r))
         
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r))
+        self.features.append(CapsuleLayer(n_classes, 64, 8, 16, kernel_size=6, stride=1, num_iterations=r))
         
         self.features = nn.Sequential(*self.features)
         

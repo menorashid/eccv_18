@@ -6,15 +6,15 @@ import numpy as np
 import scipy.misc
 import sklearn.metrics
 
-def print_accuracy(dir_exp_meta,pre_split,post_split,num_splits):
+def print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt'):
 
     all_vals = []
     max_vals = []
     max_val_idx_all = []
 
-    for split_num in range(num_splits):
+    for split_num in range_splits:
         dir_curr = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
-        log_file = os.path.join(dir_curr,'log.txt')
+        log_file = os.path.join(dir_curr,log)
         log_lines = util.readLinesFromFile(log_file)
         log_lines = [line for line in log_lines if 'val accuracy' in line]
         val_accuracy = [float(line.split(' ')[-1]) for line in log_lines]
@@ -27,21 +27,30 @@ def print_accuracy(dir_exp_meta,pre_split,post_split,num_splits):
         max_vals.append(np.max(val_accuracy))
         max_val_idx_all.append(np.argmax(val_accuracy))
 
+    str_print = []
     all_vals = np.array(all_vals)
-    print 'RESULTS'
-    print dir_exp_meta
-    print post_split
-    print num_splits
-    print ''
-    print 'best_idx','best_accu','end_accu'
+    str_print.append('RESULTS')
+    str_print.append(dir_exp_meta)
+    str_print.append(post_split)
+    str_print.append(range_splits)
+    str_print.append('')
+    str_print.append(' '.join([str(val) for val in ['best_idx','best_accu','end_accu']]))
     for i in range(len(max_val_idx_all)):
-        print max_val_idx_all[i],max_vals[i],all_vals[i]
-    print ''
-    print 'mean', np.mean(all_vals)
-    print 'std', np.std(all_vals)
-    print 'min', np.min(all_vals)
-    print 'max', np.max(all_vals)
-    print 'mean max', np.mean(max_vals)
+        str_print.append(' '.join([str(val) for val in [max_val_idx_all[i],max_vals[i],all_vals[i]]]))
+    str_print.append('')
+    str_print.append(' '.join([str(val) for val in ['mean', np.mean(all_vals)]]))
+    str_print.append(' '.join([str(val) for val in ['std', np.std(all_vals)]]))
+    str_print.append(' '.join([str(val) for val in ['min', np.min(all_vals)]]))
+    str_print.append(' '.join([str(val) for val in ['max', np.max(all_vals)]]))
+    str_print.append(' '.join([str(val) for val in ['mean max', np.mean(max_vals)]]))
+    str_print = [str(val) for val in str_print]
+    for val in str_print:
+        print val
+    out_file = os.path.join(dir_exp_meta,pre_split+post_split[1:]+'_results.txt')
+    util.writeFile(out_file,str_print)
+    print out_file
+
+    
 
 def print_cm(cm, labels, hide_zeroes=False, hide_diagonal=False, hide_threshold=None):
     """pretty print for confusion matrixes"""
@@ -68,11 +77,11 @@ def print_cm(cm, labels, hide_zeroes=False, hide_diagonal=False, hide_threshold=
         print
 
 
-def get_per_label_accuracy(dir_exp_meta,pre_split,post_split,num_splits,model_num,class_labels):
+def get_per_label_accuracy(dir_exp_meta,pre_split,post_split,range_splits,model_num,class_labels):
     predictions_all = []
     labels_all = []
     
-    for split_num in range(num_splits):
+    for split_num in range_splits:
         dir_curr = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
         out_dir_results = os.path.join(dir_curr,'results_model_'+str(model_num))
         predictions = np.load(os.path.join(out_dir_results, 'predictions.npy'))
@@ -82,21 +91,23 @@ def get_per_label_accuracy(dir_exp_meta,pre_split,post_split,num_splits,model_nu
         labels_all.append(labels)
 
     predictions_all = np.concatenate(predictions_all,0)
-    print predictions_all.shape
+    # print predictions_all.shape
 
     labels_all = np.concatenate(labels_all,0)
-    print labels_all.shape
+    # print labels_all.shape
 
     cm = sklearn.metrics.confusion_matrix(labels_all, predictions_all)
-    print cm
+    # print cm
     # cm = cm.astype('float') / cm.sum(axis=1)
 
-    print_cm(cm, class_labels)
+    # print_cm(cm, class_labels)
     out_file = os.path.join(dir_exp_meta,pre_split+post_split[1:]+'_conf_mat.jpg')
     visualize.plot_confusion_matrix(cm, class_labels, out_file,
                           normalize=True)
+    print out_file.replace('..','http://vision3.idav.ucdavis.edu:1000/maheen_data/eccv_18')
 
-def view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num):
+
+def view_loss_curves(dir_exp_meta,pre_split,post_split,range_splits,model_num):
     dir_server = '/disk3'
     str_replace = ['..','/disk3/maheen_data/eccv_18']
     out_file_html = os.path.join(dir_exp_meta,pre_split+post_split[1:]+'_loss_curves.html').replace(str_replace[0],str_replace[1])
@@ -104,7 +115,7 @@ def view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num):
     ims_html = []
     captions_html = []
 
-    for split_num in range(num_splits):
+    for split_num in range_splits:
         caption = [str(split_num)]
         dir_curr = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
         loss_file = os.path.join(dir_curr, 'loss.jpg')
@@ -121,7 +132,7 @@ def view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num):
         captions_html.append([caption])
 
     visualize.writeHTML(out_file_html,ims_html,captions_html,200,200)
-    print out_file_html.replace(dir_server,'vision3.idav.ucdavis.edu:1000')
+    print out_file_html.replace(dir_server,'http://vision3.idav.ucdavis.edu:1000')
 
 def main():
 
@@ -163,10 +174,67 @@ def main():
 
     num_classes = 6
     class_labels = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
-    # get_per_label_accuracy(dir_exp_meta,pre_split,post_split,num_splits,model_num,class_labels)
+    
+    
 
-    print_accuracy(dir_exp_meta,pre_split,post_split,num_splits)
-    view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num)
+    ######
+    dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_3_init_correct_out'
+    num_splits = range(10)
+
+    dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_2_init_correct_out'
+    num_splits = [0,1]
+    
+    dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_1_init_correct_out'
+    num_splits = range(10)
+    
+    pre_split = 'oulu_three_im_no_neutral_just_strong_'
+    post_split = '_all_aug_max_300_step_300_0.1_0.001'
+    model_num = 299
+    ######
+
+    dir_exp_meta = '../experiments/oulu_r3_hopeful'
+    num_splits = range(10)
+
+
+    # dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_2_init_correct_out'
+    # num_splits = [0,1]
+    
+    # dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_1_init_correct_out'
+    # num_splits = range(10)
+    
+    pre_split = 'oulu_three_im_no_neutral_just_strong_True_'
+    post_split = '_wdecay_all_aug_max_500_step_500_0.1_0.0001'
+    
+    # for model_num in ['499','499_center']:
+    # ,'bestVal','bestVal_center']:
+        # print 'MODEL TYPE',model_num
+        # log = 'log_test_center.txt' if model_num.endswith('_center') else 'log_test.txt'
+        # get_per_label_accuracy(dir_exp_meta,pre_split,post_split,num_splits,model_num,class_labels)
+        # print_accuracy(dir_exp_meta,pre_split,post_split,num_splits,log = log)
+        # view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num)
+
+    ####
+
+    dir_exp_meta = '../experiments/oulu_vgg_r1_noinit_preprocessed'
+    num_splits = range(10)
+
+
+    # dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_2_init_correct_out'
+    # num_splits = [0,1]
+    
+    # dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu_spread_0.2_vl_gray_r_1_init_correct_out'
+    # num_splits = range(10)
+    pre_splits = ['oulu_three_im_no_neutral_just_strong_False_']*3
+    model_names = ['vgg_capsule_disfa','vgg_capsule_disfa_bigprimary','vgg_capsule_disfa_bigclass']
+    post_splits = ['_'+model_name+'_all_aug_wdecay_0_50_step_50_0.1_1e-05_0.0001' for model_name in model_names]
+    
+    
+    for pre_split,post_split in zip(pre_splits,post_splits):
+        for model_num in ['49']:
+            print 'MODEL TYPE',model_num
+            get_per_label_accuracy(dir_exp_meta,pre_split,post_split,num_splits,model_num,class_labels)
+            print_accuracy(dir_exp_meta,pre_split,post_split,num_splits)
+            view_loss_curves(dir_exp_meta,pre_split,post_split,num_splits,model_num)
 
 
 

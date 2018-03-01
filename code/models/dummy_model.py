@@ -9,45 +9,42 @@ from dynamic_capsules import Dynamic_Capsule_Model_Super
 from spread_loss import Spread_Loss
 import torch.nn.functional as F
 
-class Vgg_Capsule_Disfa(Dynamic_Capsule_Model_Super):
+class Dummy_Model(nn.Module):
 
-    def __init__(self,n_classes,r=3):
-        super(Dynamic_Capsule_Model_Super, self).__init__()
+    def __init__(self,n_classes,r=3,class_weights=None):
+        super(Dummy_Model, self).__init__()
         
-        self.vgg_base = torch.load('models/pytorch_vgg_face_just_conv.pth')
-        # print self.vgg_base
+        stride=1
+        
+        self.vgg_base = []
+        self.vgg_base.append(nn.Conv2d(3, 64, 5, stride=stride,padding=2))
+        self.vgg_base.append(nn.ReLU(True))
+        self.vgg_base.append(nn.MaxPool2d(2,2))
+        
+        self.vgg_base.append(nn.Conv2d(64, 128, 5, stride=stride,padding=2))
+        self.vgg_base.append(nn.ReLU(True))
+        self.vgg_base.append(nn.MaxPool2d(2,2))
 
-        self.reconstruct = False
-        
+        self.vgg_base.append(nn.Conv2d(128, 256, 7, stride=3))
+        self.vgg_base.append(nn.ReLU(True))
+        self.vgg_base = nn.Sequential(*self.vgg_base)
+
         self.features = []
-        
-        self.features.append(CapsuleLayer(32, 1, 512, 8, kernel_size=3, stride=2, num_iterations=r))
-        
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r))
-        
+        self.features.append(nn.Linear(256*6*6,n_classes))
         self.features = nn.Sequential(*self.features)
         
     def forward(self,data, y = None,return_caps = False):
         x = self.vgg_base(data)
-        # print torch.min(x),torch.max(x)
-
-        x = self.features(x).squeeze()
-        classes = (x ** 2).sum(dim=-1) ** 0.5
-        # classes = F.softmax(classes)
-        # print classes.size()
-        # raw_input()
-        # classes = classes.squeeze()
-        # print classes.size()
-        # classes = F.softmax(classes)
-
-        return classes
+        x = x.view(x.size(0), 256*6*6)
+        x = self.features(x)
+        return x
 
 
 
 class Network:
-    def __init__(self,n_classes=8,r=3, init=False):
+    def __init__(self,n_classes=8,r=3, init=True,class_weights = None):
         # print 'BN',bn
-        model = Vgg_Capsule_Disfa(n_classes,r)
+        model = Dummy_Model(n_classes,r,class_weights)
         
         if init:
             for idx_m,m in enumerate(model.features):
@@ -59,25 +56,23 @@ class Network:
                     else:
                         nn.init.normal(m.route_weights.data, mean=0, std=0.1)
                 elif isinstance(m,nn.Linear) or isinstance(m,nn.Conv2d):
-                    print m
+                    # print m,1
+
+                    # print m.weight.data.shape, torch.min(m.weight.data), torch.max(m.weight.data)
+                    # print m.bias.data.shape, torch.min(m.bias.data), torch.max(m.bias.data)
+
                     nn.init.xavier_normal(m.weight.data)
                     nn.init.constant(m.bias.data,0.)
+
                 
         self.model = model
         
     
     def get_lr_list(self, lr):
-        lr_list =[]
-        for lr_curr,param_set in zip(lr,[self.model.vgg_base,self.model.features]):
-            if lr_curr==0:
-                for param in param_set.parameters():
-                    param.requires_grad = False
-            else:
-                lr_list.append({'params': param_set.parameters(), 'lr': lr_curr})
-
-        # lr_list= [{'params': self.model.vgg_base.parameters(), 'lr': lr[0]}] +\
-        #         [{'params': self.model.features.parameters(), 'lr': lr[1]}]
+        lr_list= [{'params': self.model.vgg_base.parameters(), 'lr': lr[0]}] +\
+                [{'params': self.model.features.parameters(), 'lr': lr[1]}]
         return lr_list
+
 
 def main():
     import numpy as np
@@ -86,26 +81,25 @@ def main():
     import torch.optim as optim
 
     n_classes = 10
-    net = Network(n_classes= n_classes, init = False)
+    net = Network(n_classes= n_classes, init = True)
     print net.model
     labels = np.random.randn(16,n_classes)
     labels[labels>0.5]=1
     labels[labels<0.5]=0
 
     net.model = net.model.cuda()
-    print net.model
-    input = np.random.randn(16,3,224,224)
+    input = np.random.randn(16,3,96,96)
     
     input = torch.Tensor(input).cuda()
     print input.shape
     input = Variable(input)
-    optimizer = optim.Adam(net.model.parameters(),lr=0.00005)
+    optimizer = optim.Adam(net.model.parameters())
     labels = Variable(torch.FloatTensor(labels).cuda())
     # output = net.model(input)
     # print output.data.shape
     criterion = nn.MultiLabelSoftMarginLoss()
     # criterion(output,labels)
-    epochs = 1000
+    epochs = 50
     for epoch in range(epochs):
         # inputv = Variable(torch.FloatTensor(sample)).view(1, -1)
         # labelsv = Variable(torch.FloatTensor(labels[i])).view(1, -1)

@@ -7,6 +7,7 @@ import scipy.misc
 import numpy as np
 import random
 import cv2
+import multiprocessing
 
 def make_train_test_split():
     pass
@@ -102,22 +103,29 @@ def save_mean_std_vals(dir_files):
 
 def write_train_test_files_no_neutral(val=False):
     dir_meta = '../data/Oulu_CASIA'
-    out_dir_files = os.path.join(dir_meta,'train_test_files_preprocess_maheen_vl_gray')
+    # out_dir_files = os.path.join(dir_meta,'train_test_files_preprocess_maheen_vl_color_256')
+    out_dir_files = os.path.join(dir_meta,'train_test_files_preprocess_vl')
+    util.mkdir(out_dir_files)
     # subs_dir = out_dir_files
-    subs_dir = os.path.join(dir_meta,'subs')
+    if val:
+        subs_dir = os.path.join(dir_meta,'subs')
+    else:
+        subs_dir = os.path.join(dir_meta,'train_test_files')
 
     out_dir_single_im = os.path.join(out_dir_files,'three_im_no_neutral_just_strong_'+str(val))
     util.mkdir(out_dir_single_im)
     
     expressions = ['Anger', 'Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
 
-    # mid_dir = 'PreProcess_Img/NI_Acropped'
+    # mid_dir = ['PreProcess_Img/NI_Acropped/*','PreProcess_Img/VL_Acropped/Strong']
     # mid_dir = 'preprocess_maheen/NI'
-    mid_dir = 'preprocess_maheen/VL_gray'
+    # mid_dir = 'preprocess_maheen/VL_256'
+    mid_dir = 'PreProcess_Img/VL_Acropped'
     
     dir_meta_subjects = glob.glob(os.path.join(dir_meta,mid_dir,'Strong'))
 
     dir_ims = glob.glob(os.path.join(dir_meta,mid_dir,'Strong','*','*'))
+    
 
     num_folds = 10
     num_select = 3
@@ -231,9 +239,13 @@ def verify_distribution():
             print class_curr, classes.count(class_curr)
         print '___'
 
-def saveCroppedFace(in_file,out_file,im_size=None,padding=None, classifier_path=None,savegray=True):
-    if classifier_path==None:
-        classifier_path = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml';
+# def saveCroppedFace(in_file,out_file,im_size=None, classifier_path=None,savegray=True):
+def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
+    if idx_file_curr%100==0:
+        print idx_file_curr
+
+    # if classifier_path==None:
+    classifier_path = '/usr/share/opencv/haarcascades/haarcascade_frontalface_default.xml';
 
     img = cv2.imread(in_file);
     
@@ -287,24 +299,34 @@ def save_cropped_images_script():
     out_dir_meta = '../data/Oulu_CASIA/preprocess_maheen/NI'
 
     dir_meta = '../data/Oulu_CASIA/OriginalImg/VL'
-    out_dir_meta = '../data/Oulu_CASIA/preprocess_maheen/VL_gray'
+    out_dir_meta = '../data/Oulu_CASIA/preprocess_maheen/VL'; savegray=False
+    out_dir_meta = '../data/Oulu_CASIA/preprocess_maheen/VL_256'; savegray=False
     
     util.makedirs(out_dir_meta)
     all_im = glob.glob(os.path.join(dir_meta,'Strong','*','*','*.jpeg'))
     print len(all_im)
-    im_size = [96,96]
-    padding = [10,0]
+    im_size = [256,256]
     problem_files = []
 
+    args = []
     for idx_file_curr,file_curr in enumerate(all_im):
-        if idx_file_curr%100==0:
-            print idx_file_curr,len(all_im)
+        # if idx_file_curr%100==0:
+        #     print idx_file_curr,len(all_im)
         out_file = file_curr.replace(dir_meta,out_dir_meta)
-        if os.path.exists(out_file):
-            continue
+        # if os.path.exists(out_file):
+        #     continue
         out_dir_curr = os.path.split(out_file)[0]
         util.makedirs(out_dir_curr)
-        saveCroppedFace(file_curr,out_file,im_size,padding)
+        args.append((file_curr,out_file,im_size,savegray,idx_file_curr))
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    pool.map(saveCroppedFace,args)
+
+    # for arg in args:
+    #     saveCroppedFace(arg)
+    #     print arg
+    #     raw_input()
+        # file_curr,out_file,im_size,savegray=savegray)
 
     for idx_file_curr,file_curr in enumerate(all_im):
         out_file = file_curr.replace(dir_meta,out_dir_meta)
@@ -319,15 +341,15 @@ def main():
     # make_fold_files_with_val()
     # return
 
-    write_train_test_files_no_neutral(val=True)
-    return
-    # save_cropped_images_script()
+    write_train_test_files_no_neutral(val=False)
     # return
+    # save_cropped_images_script()
+    return
     dir_server = '/disk3'
     str_replace = ['..',os.path.join(dir_server,'maheen_data','eccv_18')]
 
     split_num = 0
-    dir_files = '../data/Oulu_CASIA/train_test_files_preprocess_maheen_vl_gray/three_im_balance_neutral'
+    dir_files = '../data/Oulu_CASIA/train_test_files_preprocess_maheen_vl_color_256/three_im_no_neutral_just_strong_False'
     train_file = os.path.join(dir_files,'train_'+str(split_num)+'.txt')
     test_file =  os.path.join(dir_files,'test_'+str(split_num)+'.txt')
     all_files = util.readLinesFromFile(train_file)+util.readLinesFromFile(test_file)
@@ -336,8 +358,8 @@ def main():
     captions = ['' for file_curr in all_files]
     print len(all_files)
     all_files = np.array(all_files)
-    all_files = np.reshape(all_files,(43,39))
-    captions = np.reshape(np.array(captions),(43,39))
+    all_files = np.reshape(all_files,(479,3))
+    captions = np.reshape(np.array(captions),(479,3))
     print all_files.shape
 
 
@@ -345,7 +367,8 @@ def main():
     # print all_files[:10]
     # print captions[:10]
     out_file_html = os.path.join(dir_files,str(split_num)+'.html')
-    visualize.writeHTML(out_file_html,all_files,captions,96,96)
+    visualize.writeHTML(out_file_html,all_files,captions,256,256)
+    print out_file_html.replace('..','http://vision3.idav.ucdavis.edu:1000/maheen_data/eccv_18')
 
 
 

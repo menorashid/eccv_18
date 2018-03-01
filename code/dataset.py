@@ -89,15 +89,24 @@ class CK_96_New_Dataset(generic_dataset):
         return sample
 
 class Oulu_Static_Dataset(generic_dataset):
-    def __init__(self, text_file, transform=None):
+    def __init__(self, text_file, transform=None, bgr = False,color=False):
         super(Oulu_Static_Dataset, self).__init__(text_file,transform)
+        self.bgr = bgr
+        self.color = color
         
     def __getitem__(self, idx):
         train_file_curr = self.files[idx]
         train_file_curr,label = train_file_curr.split(' ')
         label = int(label)
         image = scipy.misc.imread(train_file_curr)
-        image = image[:,:,np.newaxis]
+        
+        if len(image.shape)==2:
+            image = image[:,:,np.newaxis]
+            if self.color:
+                image = np.concatenate((image,image,image),2)
+
+        if self.bgr:
+            image = image[:,:,[2,1,0]]
         
         sample = {'image': image, 'label': label}
         sample['image'] = self.transform(sample['image'])
@@ -106,8 +115,15 @@ class Oulu_Static_Dataset(generic_dataset):
 
 
 class Disfa_10_6_Dataset(generic_dataset):
-    def __init__(self, text_file, transform=None):
-        super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
+    def __init__(self, text_file, bgr = False, transform=None):
+        # super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
+        self.bgr = bgr
+        self.files = util.readLinesFromFile(text_file)[:1]
+        self.transform = transform
+        if transform is None:
+            self.transform = transforms.ToTensor()
+        else:
+            self.transform = transform
         
     def __getitem__(self, idx):
         train_file_curr = self.files[idx]
@@ -117,11 +133,13 @@ class Disfa_10_6_Dataset(generic_dataset):
         labels = np.array(labels)
         # .astype('float')
         labels[labels>0]=1
+        labels[labels<1]=0
         # labels[labels<0.5]=0.1
 
 
         image = scipy.misc.imread(train_file_curr)
-        
+        if self.bgr:
+            image = image[:,:,[2,1,0]]        
         sample = {'image': image, 'label': labels}
         sample['image'] = self.transform(sample['image'])
 
