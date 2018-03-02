@@ -8,22 +8,31 @@ import random
 import dataset
 import numpy as np
 import torch
+from analysis import getting_accuracy
 
 def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False):
+    out_dirs = []
+
+    out_dir_meta = '../experiments/oulu_vgg_recon_r'+str(route_iter)+'_noinit_preprocessed'
+    num_epochs = epoch_stuff[1]
+    epoch_start = 0
+    dec_after = ['step',epoch_stuff[0],0.1]
+
+    # data/Oulu_CASIA/train_test_files_preprocess_vl/
+    lr = lr
+    im_resize = 256
+    im_size = 224
+    # model_name = 'vgg_capsule_disfa'
+    save_after = 10
+    type_data = 'three_im_no_neutral_just_strong_False'; n_classes = 6;
+
+
+    strs_append = '_'+'_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
+    pre_pend = 'oulu_'+type_data+'_'
+    
+    
     for split_num in folds:
-        out_dir_meta = '../experiments/oulu_vgg_recon_r'+str(route_iter)+'_noinit_preprocessed'
-        num_epochs = epoch_stuff[1]
-        epoch_start = 0
-        dec_after = ['step',epoch_stuff[0],0.1]
-
-        # data/Oulu_CASIA/train_test_files_preprocess_vl/
-        lr = lr
-        im_resize = 256
-        im_size = 224
-        # model_name = 'vgg_capsule_disfa'
-        save_after = 10
-        type_data = 'three_im_no_neutral_just_strong_False'; n_classes = 6;
-
+        
         if res:
             strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,50,'step',50,0.1]+lr])
             out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
@@ -45,9 +54,10 @@ def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_c
         margin_params = None
         
 
-        strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
-        out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
-        print out_dir_train
+        # strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
+        # out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
+        # print out_dir_train
+        out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append)
         final_model_file = os.path.join(out_dir_train,'model_'+str(num_epochs-1)+'.pt')
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
@@ -139,12 +149,12 @@ def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_c
                 network_params = network_params)
         test_model(**test_params)
         
-
+    getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
 
 
 def main():
     
-    folds = [9]
+    folds = range(10)
     epoch_stuff = [50,50]
     lr = [0,0.001,0.001]
     res=True
@@ -152,8 +162,25 @@ def main():
     simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_withrecon', epoch_stuff=epoch_stuff,res=False)
 
     #more class
-    #same class lower vgg lr
-    #more class lower vgg lr
+    simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_bigclass_withrecon', epoch_stuff=epoch_stuff,res=False)
+    # #more primary same #param
+    # simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_bigprimary_lessdim_withrecon', epoch_stuff=epoch_stuff,res=False)
+    # #more primary 
+    # simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_bigprimary_withrecon', epoch_stuff=epoch_stuff,res=False)
+    # #more primary  and more class
+    simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_bigprimary_bigclass_withrecon', epoch_stuff=epoch_stuff,res=False)
+
+    #original with only some ft
+    # lr = [0,0.0001,0.001,0.001]
+    # simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_lastft_withrecon', epoch_stuff=epoch_stuff,res=False)
+    
+
+    # #same class lower vgg lr
+    # lr = [0.00001,0.001,0.001]
+    # simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_withrecon', epoch_stuff=epoch_stuff,res=False)
+
+    # #more class lower vgg lr
+    # simple_train_preprocessed(0, lr=lr, route_iter = route_iter, folds= folds, model_name='vgg_capsule_disfa_bigclass_withrecon', epoch_stuff=epoch_stuff,res=False)
 
 
     # route_iter = 1

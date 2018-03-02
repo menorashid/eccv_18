@@ -8,6 +8,7 @@ import random
 import dataset
 import numpy as np
 import torch
+from analysis import getting_accuracy
 
 def simple_train(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60]):
     for split_num in folds:
@@ -147,23 +148,28 @@ def simple_train(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa'
         test_model(**test_params)
 
 def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False):
+
+    out_dir_meta = '../experiments/oulu_vgg_r'+str(route_iter)+'_noinit_preprocessed'
+    num_epochs = epoch_stuff[1]
+    epoch_start = 0
+    dec_after = ['step',epoch_stuff[0],0.1]
+
+    # data/Oulu_CASIA/train_test_files_preprocess_vl/
+    lr = lr
+    im_resize = 256
+    im_size = 224
+    # model_name = 'vgg_capsule_disfa'
+    save_after = 10
+    type_data = 'three_im_no_neutral_just_strong_False'; n_classes = 6;
+
+    strs_append = '_'+'_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
+    pre_pend = 'oulu_'+type_data+'_'
+    
     for split_num in folds:
-        out_dir_meta = '../experiments/oulu_vgg_r'+str(route_iter)+'_noinit_preprocessed'
-        num_epochs = epoch_stuff[1]
-        epoch_start = 0
-        dec_after = ['step',epoch_stuff[0],0.1]
-
-        # data/Oulu_CASIA/train_test_files_preprocess_vl/
-        lr = lr
-        im_resize = 256
-        im_size = 224
-        # model_name = 'vgg_capsule_disfa'
-        save_after = 10
-        type_data = 'three_im_no_neutral_just_strong_False'; n_classes = 6;
-
+    
         if res:
-            strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,50,'step',50,0.1]+lr])
-            out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
+            strs_append_c = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,50,'step',50,0.1]+lr])
+            out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append_c)
             model_file = os.path.join(out_dir_train,'model_49.pt')
             epoch_start = 50
         else:
@@ -181,12 +187,12 @@ def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_c
         margin_params = None
         
 
-        strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
-        out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_append)
-        print out_dir_train
+        # strs_append = '_'.join([str(val) for val in [model_name,'all_aug','wdecay',wdecay,num_epochs]+dec_after+lr])
+        out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append)
+        # print out_dir_train
         final_model_file = os.path.join(out_dir_train,'model_'+str(num_epochs-1)+'.pt')
         if os.path.exists(final_model_file):
-            print 'skipping',final_model_file
+            # print 'skipping',final_model_file
             continue 
         # lr[1]=lr[1]*dec_after[2]
 
@@ -196,7 +202,7 @@ def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_c
         
         # mean_std = np.array([[129.1863,104.7624,93.5940],[1.,1.,1.]]) #rgb
         mean_std = np.array([[128.,128.,128.],[1.,1.,1.]]) #bgr
-        print mean_std
+        # print mean_std
 
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
@@ -292,6 +298,7 @@ def simple_train_preprocessed(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_c
         test_params['post_pend'] = '_center'
         test_model(**test_params)
 
+    getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
 
 
 def main():
