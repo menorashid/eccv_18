@@ -146,11 +146,18 @@ def save_mean_std_vals():
         print mean_std.shape, mean_std
         np.save(out_file,mean_std)
 
+def save_dummy_std_vals():
+    for split_num in range(0,10):
+        std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std_just_one.png'
+        vals = np.ones((96,96))
+        cv2.imwrite(std_file,vals)
+
+
 def create_256_train_test_files():
     in_data_dir = '../data/ck_96/train_test_files'
     out_data_dir = '../data/ck_256/train_test_files'
     util.mkdir(out_data_dir)
-    
+
     num_folds = 10
     for split_num in range(0,num_folds):
         for file_pre in ['train','test']:
@@ -165,7 +172,8 @@ def create_256_train_test_files():
         
 
 def main():
-    create_256_train_test_files()
+    save_dummy_std_vals()
+    # create_256_train_test_files()
 
     # saveCKresizeImages()
     return

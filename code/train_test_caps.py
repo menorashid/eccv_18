@@ -174,6 +174,7 @@ def train_model(out_dir_train,
 
             data = Variable(batch['image'].cuda())
             # print torch.min(data),torch.max(data)
+            # raw_input()
             
             if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
                 labels = Variable(batch['label'].float().cuda())
@@ -197,8 +198,8 @@ def train_model(out_dir_train,
             loss_iter = loss.data[0]
             loss.backward()
             optimizer.step()
-            # if dec_after is not None and dec_after[0]=='exp':
-            #     exp_lr_scheduler.step()
+            if dec_after is not None and dec_after[0]=='exp':
+                exp_lr_scheduler.step()
             
             num_iter = num_epoch*len(train_dataloader)+num_iter_train
             plot_arr[0].append(num_iter); plot_arr[1].append(loss_iter)
@@ -291,8 +292,7 @@ def train_model(out_dir_train,
                 torch.save(model,out_file_best)            
             exp_lr_scheduler.step(loss_iter)
 
-        elif dec_after is not None :
-        # and dec_after[0]!='exp':
+        elif dec_after is not None and dec_after[0]!='exp':
             exp_lr_scheduler.step()
     
     out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
