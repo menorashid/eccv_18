@@ -63,6 +63,33 @@ class CK_96_Dataset(generic_dataset):
 
         return sample
 
+class CK_96_Dataset_Just_Mean(generic_dataset):
+    def __init__(self, text_file, mean_file, std_file, transform=None):
+        super(CK_96_Dataset_Just_Mean, self).__init__(text_file,transform)
+        self.mean = scipy.misc.imread(mean_file).astype(np.float32)
+        # self.std = scipy.misc.imread(std_file).astype(np.float32)
+        # self.std[self.std==0]=1.
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        train_file_curr,label = train_file_curr.split(' ')
+        label = int(label)
+        image = scipy.misc.imread(train_file_curr).astype(np.float32)
+        # print np.min(image),np.max(image)
+        image = image-self.mean
+        # print np.min(image),np.max(image)
+        # image = image/self.std
+        # print np.min(image),np.max(image)
+        # image = image- self.mean
+        image = image[:,:,np.newaxis]
+        
+        # print np.min(image), np.max(image)        
+        
+        sample = {'image': image, 'label': label}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
+
 class CK_96_New_Dataset(generic_dataset):
     def __init__(self, text_file, transform=None):
         super(CK_96_New_Dataset, self).__init__(text_file,transform)
@@ -112,6 +139,12 @@ class Oulu_Static_Dataset(generic_dataset):
         sample['image'] = self.transform(sample['image'])
 
         return sample
+
+
+class CK_for_VGG(Oulu_Static_Dataset):
+    def __init__(self, text_file, transform=None, bgr = False,color=False):
+        super(Oulu_Static_Dataset, self).__init__(text_file,transform,bgr,color)
+    
 
 
 class Disfa_10_6_Dataset(generic_dataset):
