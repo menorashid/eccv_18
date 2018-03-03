@@ -69,7 +69,41 @@ def make_fold_files_with_val():
         util.writeFile(out_file_test,test_subs)
         util.writeFile(out_file_val,val_subs)
 
+def save_mean_std_im(dir_files):
+    im_resize = [96,96]
 
+    for split_num in range(0,10):
+        train_file = os.path.join(dir_files,'train_'+str(split_num)+'.txt')
+        out_file_mean = os.path.join(dir_files,'train_'+str(split_num)+'_mean.png')
+        out_file_std = os.path.join(dir_files,'train_'+str(split_num)+'_std.png')
+
+        lines = util.readLinesFromFile(train_file)
+        im_all = []
+        for line in lines:
+            im = line.split(' ')[0]
+            im = scipy.misc.imresize(scipy.misc.imread(im),(im_resize[0],im_resize[1])).astype(np.float32)
+            # im = im/255.
+            im = im[:,:,np.newaxis]
+            im_all.append(im)
+
+        # print len(im_all)
+        print im_all[0].shape
+        im_all = np.concatenate(im_all,2)
+        
+
+        print im_all.shape, np.min(im_all),np.max(im_all)
+        mean_val = np.mean(im_all,axis=2)
+        print mean_val.shape,np.min(mean_val),np.max(mean_val)
+
+        std_val = np.std(im_all,axis=2)
+        print std_val.shape,np.min(std_val),np.max(std_val)
+        cv2.imwrite(out_file_mean,mean_val)
+        cv2.imwrite(out_file_std,std_val)
+
+        # print mean_val,std_val
+        # mean_std = np.array([mean_val,std_val])
+        # print mean_std.shape, mean_std
+        # np.save(out_file,mean_std)
 
 
 def save_mean_std_vals(dir_files):
@@ -341,7 +375,9 @@ def main():
     # make_fold_files_with_val()
     # return
 
-    write_train_test_files_no_neutral(val=False)
+    # write_train_test_files_no_neutral(val=False)
+    dir_files = '../data/Oulu_CASIA/train_test_files_preprocess_vl/three_im_no_neutral_just_strong_False'
+    save_mean_std_im(dir_files)
     # return
     # save_cropped_images_script()
     return

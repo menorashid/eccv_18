@@ -37,13 +37,13 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         elif pool_type=='avg':
             self.features.append(nn.AvgPool2d(2,2))
         
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=9, stride=4, num_iterations=r))
+        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
         
         
         self.features = nn.Sequential(*self.features)
         
         
-        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=4, stride=1, num_iterations=r)
+        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r)
         
     # def forward(self, x):
     #     x = self.features(x)

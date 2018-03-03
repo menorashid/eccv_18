@@ -48,6 +48,9 @@ class CK_96_Dataset(generic_dataset):
         train_file_curr,label = train_file_curr.split(' ')
         label = int(label)
         image = scipy.misc.imread(train_file_curr).astype(np.float32)
+        if image.shape[0]!=96 or image.shape[1]!=96:
+            image = scipy.misc.imresize(image,(96,96)).astype(np.float32)
+
         # print np.min(image),np.max(image)
         image = image-self.mean
         # print np.min(image),np.max(image)
