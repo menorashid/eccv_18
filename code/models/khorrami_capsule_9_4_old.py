@@ -7,17 +7,14 @@ import torch
 import torch.nn.functional as F
 from CapsuleLayer import CapsuleLayer,softmax
 from dynamic_capsules import Dynamic_Capsule_Model_Super
-from torch.autograd import Variable
-import math
 
 
 class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
-        self.reconstruct = reconstruct 
-        self.num_classes = n_classes
+        self.reconstruct = False
         if class_weights is not None:
             self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
 
@@ -41,26 +38,19 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         elif pool_type=='avg':
             self.features.append(nn.AvgPool2d(2,2))
         
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
+        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=9, stride=4, num_iterations=r))
         
         
         self.features = nn.Sequential(*self.features)
         
         
-        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r)
-            
-        if self.reconstruct:
-            self.reconstruction_loss = nn.MSELoss(size_average=False)
-            self.decoder = nn.Sequential(
-                nn.Linear(16 * self.num_classes, 512),
-                nn.ReLU(inplace=True),
-                nn.Linear(512, 1024),
-                nn.ReLU(inplace=True),
-                nn.Linear(1024, 1024),
-            )
-            self.upsampler = nn.Upsample(size=(96,96), mode='bilinear')
+        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=4, stride=1, num_iterations=r)
+        
+    # def forward(self, x):
+    #     x = self.features(x)
+    #     print x.size()
+    #     return x
 
-    
     def forward(self, data, y = None,return_caps = False):
         x = self.features(data)
         x = self.caps(x)
@@ -68,34 +58,15 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         
         classes = (x ** 2).sum(dim=-1) ** 0.5
         classes = F.softmax(classes)
-        if self.reconstruct:
-            if y is None:
-                _, max_length_indices = classes.max(dim=1)
-                y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=max_length_indices)
-            else:
-                y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=y)
-            
-            reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
-            reconstructions = reconstructions.view(reconstructions.size(0),1,int(math.sqrt(reconstructions.size(1))),int(math.sqrt(reconstructions.size(1))))
-            reconstructions = self.upsampler(reconstructions)
-
-            # print reconstructions.size(),torch.min(reconstructions),torch.max(reconstructions)
-            # print data.size(),torch.min(data),torch.max(data)
-            # raw_input()
-            if return_caps:
-                return classes, reconstructions, data, x
-            else:
-                return classes, reconstructions, data
+        if return_caps:
+            return classes, x
         else:
-            if return_caps:
-                return classes, x
-            else:
-                return classes
+            return classes
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct)
+        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights)
 
         if init:
             for idx_m,m in enumerate(model.features):
@@ -118,9 +89,6 @@ class Network:
     
     def get_lr_list(self, lr):
         lr_list= [{'params': self.model.features.parameters(), 'lr': lr[0]}]+[{'params': self.model.caps.parameters(), 'lr': lr[1]}]
-        if self.model.reconstruct:
-            lr_list = lr_list + [{'params': self.model.decoder.parameters(), 'lr': lr[2]}]
-            
         return lr_list
 
 
@@ -129,15 +97,15 @@ def main():
     import torch
     from torch.autograd import Variable
 
-    net = Network(n_classes= 8, pool_type='nopool', init = False, reconstruct = True)
+    net = Network(n_classes= 8, pool_type='nopool', init = True)
     print net.model
     net.model = net.model.cuda()
     input = np.zeros((10,1,96,96))
     input = torch.Tensor(input).cuda()
     print input.shape
     input = Variable(input)
-    output,recon,data = net.model(input)
-    print output.data.shape,recon.data.shape,data.data.shape
+    output = net.model(input)
+    print output.data.shape
 
 if __name__=='__main__':
     main()

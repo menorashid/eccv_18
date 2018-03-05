@@ -66,6 +66,38 @@ class CK_96_Dataset(generic_dataset):
 
         return sample
 
+
+class CK_96_Dataset_WithAU(generic_dataset):
+    def __init__(self, text_file, mean_file, std_file, transform=None):
+        super(CK_96_Dataset_WithAU, self).__init__(text_file,transform)
+        self.mean = scipy.misc.imread(mean_file).astype(np.float32)
+        self.std = scipy.misc.imread(std_file).astype(np.float32)
+        self.std[self.std==0]=1.
+        
+    def __getitem__(self, idx):
+        line_curr = self.files[idx]
+        
+        line_split = line_curr.split(' ')
+        train_file_curr = line_split[0]
+        annos= [int(val) for val in line_split[1:]]
+        label = annos[0]
+        bin_au = annos[1]
+        label_au = np.array(annos[2:])
+
+        image = scipy.misc.imread(train_file_curr).astype(np.float32)
+        if image.shape[0]!=96 or image.shape[1]!=96:
+            image = scipy.misc.imresize(image,(96,96)).astype(np.float32)
+
+        image = image-self.mean
+        image = image/self.std
+        image = image[:,:,np.newaxis]
+        
+        
+        sample = {'image': image, 'label': label, 'label_au': label_au, 'bin_au':bin_au}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
+
 class CK_96_Dataset_Just_Mean(generic_dataset):
     def __init__(self, text_file, mean_file, std_file, transform=None):
         super(CK_96_Dataset_Just_Mean, self).__init__(text_file,transform)

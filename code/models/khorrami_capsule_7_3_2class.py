@@ -13,13 +13,19 @@ import math
 
 class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False):
+    def __init__(self, n_classes, pool_type='max', r=3, class_weights=None, reconstruct = False, au_sup = False, class_weights_au=None,loss_weights = None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
         self.num_classes = n_classes
+        self.au_sup = au_sup
+        self.loss_weights = loss_weights
+
         if class_weights is not None:
             self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
+
+        if class_weights_au is not None:
+            self.class_weights_au = torch.Tensor(class_weights_au[np.newaxis,:])            
 
         if pool_type=='nopool':
             stride=2
@@ -46,9 +52,11 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         
         self.features = nn.Sequential(*self.features)
         
+        self.caps = []
+        self.caps.append(CapsuleLayer(32, 32, 8, 8, kernel_size=6, stride=1, num_iterations=r))
+        self.caps.append(CapsuleLayer(n_classes, 32, 8, 16, kernel_size=1, stride=1, num_iterations=r))
+        self.caps = nn.Sequential(*self.caps)
         
-        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r)
-            
         if self.reconstruct:
             self.reconstruction_loss = nn.MSELoss(size_average=False)
             self.decoder = nn.Sequential(
@@ -63,11 +71,24 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
     
     def forward(self, data, y = None,return_caps = False):
         x = self.features(data)
-        x = self.caps(x)
+        # x = self.caps(x)
+
+        x_au = self.caps[0](x)
+        x = self.caps[1](x_au)
         x = x.squeeze()
         
         classes = (x ** 2).sum(dim=-1) ** 0.5
         classes = F.softmax(classes)
+
+        to_return = [classes]
+
+        if self.au_sup:
+            classes_au = (x_au.squeeze() ** 2).sum(dim=-1) ** 0.5
+            classes_au = F.sigmoid(classes_au)
+            to_return.append(classes_au)
+        
+
+
         if self.reconstruct:
             if y is None:
                 _, max_length_indices = classes.max(dim=1)
@@ -82,20 +103,25 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
             # print reconstructions.size(),torch.min(reconstructions),torch.max(reconstructions)
             # print data.size(),torch.min(data),torch.max(data)
             # raw_input()
-            if return_caps:
-                return classes, reconstructions, data, x
-            else:
-                return classes, reconstructions, data
-        else:
-            if return_caps:
-                return classes, x
-            else:
-                return classes
+            to_return.append(reconstructions)
+            to_return.append(data)
+
+        #     if return_caps:
+        #         return classes, reconstructions, data, x
+        #     else:
+        #         return classes, reconstructions, data
+        # else:
+        if return_caps:
+            to_return.append(x)
+            #     return classes, x
+            # else:
+            #     return classes
+        return tuple(to_return)
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False, au_sup = False, class_weights_au=None,loss_weights = None):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct)
+        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct,au_sup,class_weights_au,loss_weights)
 
         if init:
             for idx_m,m in enumerate(model.features):
@@ -120,7 +146,7 @@ class Network:
         lr_list= [{'params': self.model.features.parameters(), 'lr': lr[0]}]+[{'params': self.model.caps.parameters(), 'lr': lr[1]}]
         if self.model.reconstruct:
             lr_list = lr_list + [{'params': self.model.decoder.parameters(), 'lr': lr[2]}]
-            
+
         return lr_list
 
 

@@ -759,3 +759,534 @@ def test_model_list_models(out_dir_train,
     
     
 
+def train_model_recon(out_dir_train,
+                train_data,
+                test_data,
+                batch_size = None,
+                batch_size_val =None,
+                num_epochs = 100,
+                save_after = 20,
+                disp_after = 1,
+                plot_after = 10,
+                test_after = 1,
+                lr = 0.0001,
+                dec_after = 100, 
+                model_name = 'alexnet',
+                criterion = nn.CrossEntropyLoss(),
+                gpu_id = 0,
+                num_workers = 0,
+                model_file = None,
+                epoch_start = 0,
+                margin_params = None,
+                network_params = None,
+                just_encoder = False,
+                weight_decay = 0):
+
+    util.mkdir(out_dir_train)
+    log_file = os.path.join(out_dir_train,'log.txt')
+    plot_file = os.path.join(out_dir_train,'loss.jpg')
+    log_arr = []
+    plot_arr = [[[],[]],[[],[]],[[],[]]]
+    plot_val_arr =  [[[],[]],[[],[]],[[],[]]]
+    plot_val_acc_arr = [[],[]]
+    plot_strs_posts = ['Total','Margin','Recon']
+    plot_acc_file = os.path.join(out_dir_train,'val_accu.jpg')
+    
+    network = models.get(model_name,network_params)
+    # data_transforms = network.data_transforms
+    if model_file is not None:
+    #     model = network.model
+    # else:
+        if network_params is not None and just_encoder:
+            network.model.features = torch.load(model_file).features
+        else:
+            network.model = torch.load(model_file)
+    model = network.model
+
+    # print model
+
+    # train_data = dataset(train_file,data_transforms['train'])
+    # test_data = dataset(test_file,data_transforms['val'])
+    
+    if batch_size is None:
+        batch_size = len(train_data)
+
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+
+    train_dataloader = torch.utils.data.DataLoader(train_data, 
+                        batch_size=batch_size,
+                        shuffle=True, 
+                        num_workers=0)
+    
+    test_dataloader = torch.utils.data.DataLoader(test_data, 
+                        batch_size=batch_size_val,
+                        shuffle=False, 
+                        num_workers=num_workers)
+    
+    torch.cuda.device(gpu_id)
+    
+    model = model.cuda()
+    model.train(True)
+    
+    # optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
+    optimizer = torch.optim.Adam(network.get_lr_list(lr),weight_decay=weight_decay)
+    print optimizer
+    print dec_after
+    if dec_after is not None:
+        print dec_after
+        if dec_after[0] is 'step':
+            print dec_after
+            exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=dec_after[2])
+        elif dec_after[0] is 'exp':
+            print dec_after
+            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
+        elif dec_after[0] is 'reduce':
+            best_val = 0
+            exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
+            
+    if criterion=='spread':
+        # margin = margin_params['start']
+        criterion = Spread_Loss(**margin_params)
+
+    
+    recons=True
+
+    print 'RECON',recons
+    for num_epoch in range(epoch_start,num_epochs):
+
+        # if isinstance(criterion,Spread_Loss):
+        #     if num_epoch % margin_params['step'] ==0:
+        #         i = num_epoch//margin_params['step']
+        #         inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
+        #         margin = i*inc+margin_params['start']
+
+        for num_iter_train,batch in enumerate(train_dataloader):
+
+            data = Variable(batch['image'].cuda())
+            # print torch.min(data),torch.max(data)
+            # raw_input()
+            
+            if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                labels = Variable(batch['label'].float().cuda())
+            else:
+                labels = Variable(torch.LongTensor(batch['label']).cuda())
+            optimizer.zero_grad()
+
+            
+            loss, margin_loss, recon_loss = model.margin_loss(model(data,labels), labels) 
+
+            
+
+            loss_iter = loss.data[0]
+            loss.backward()
+            optimizer.step()
+            if dec_after is not None and dec_after[0]=='exp':
+                exp_lr_scheduler.step()
+            
+            num_iter = num_epoch*len(train_dataloader)+num_iter_train
+            for idx_loss,loss_curr in enumerate([loss, margin_loss, recon_loss]):
+                plot_arr[idx_loss][0].append(num_iter)
+                plot_arr[idx_loss][1].append(loss_curr.data)
+            
+            
+            str_display = 'lr: %.6f, iter: %d, loss: %.4f, margin: %.4f, recon: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss.data[0],recon_loss.data[0])
+
+
+
+            log_arr.append(str_display)
+            print str_display
+
+            if num_iter % plot_after== 0 and num_iter>0:
+                util.writeFile(log_file, log_arr)
+                if len(plot_val_arr[0])==0:
+                    visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
+                else:
+                    
+                    lengend_strs = [pre_str+plot_str_posts for pre_str in ['Train ','Test '] for plot_str_posts in plot_strs_posts]
+
+                    plot_vals = [(arr[0],arr[1]) for arr in plot_arr+plot_val_arr]
+                    # print plot_vals
+                    # print lengend_strs
+                    visualize.plotSimple(plot_vals,out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=lengend_strs)
+
+                    visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
+
+
+        if num_epoch % test_after == 0:
+            model.eval()
+            predictions = []
+            labels_all = []
+            loss_epoch = []
+            margin_loss_epoch = []
+            recon_loss_epoch = []
+            for num_iter_test,batch in enumerate(test_dataloader):
+                labels_all.append(batch['label'].numpy())
+        
+                data = Variable(batch['image'].cuda())
+                if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                    labels = Variable(batch['label'].float().cuda())
+                else:
+                    labels = Variable(torch.LongTensor(batch['label']).cuda())
+                output = model(data)
+                
+                loss, margin_loss, recon_loss = model.margin_loss(output, labels) 
+                
+                loss_iter = loss.data[0]
+                
+                if isinstance(output, tuple):
+                    out = output[0].data.cpu().numpy()
+                else:
+                    out = output.data.cpu().numpy()
+                if len(labels.size())>1:
+                    predictions.append(out)
+                else:
+                    predictions.append(np.argmax(out,1))                
+                
+                loss_epoch.append(loss_iter)
+                margin_loss_epoch.append(margin_loss.data[0])
+                recon_loss_epoch.append(recon_loss.data[0])
+
+            loss_iter = np.mean(loss_epoch)
+            margin_loss_iter = np.mean(margin_loss_epoch)
+            recon_loss_iter = np.mean(recon_loss_epoch)
+            
+            num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)
+
+            for idx_loss,loss_curr in enumerate([loss_iter, margin_loss_iter, recon_loss_iter]):
+                plot_val_arr[idx_loss][0].append(num_iter)
+                plot_val_arr[idx_loss][1].append(loss_curr)
+            
+
+            str_display = 'lr: %.6f, val iter: %d, val loss: %.4f, margin: %.4f, recon %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss_iter,recon_loss_iter)
+
+            log_arr.append(str_display)
+            print str_display
+            labels_all = np.concatenate(labels_all)
+            predictions = np.concatenate(predictions)
+
+            # print labels_all.shape,predictions.shape
+            if len(labels_all.shape)>1:
+                accuracy = get_auc(predictions,labels_all)
+            else:
+                accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+            plot_val_acc_arr[0].append(num_iter); plot_val_acc_arr[1].append(accuracy)
+            str_display = 'val accuracy: %.4f' %(accuracy)
+            log_arr.append(str_display)
+            print str_display
+            
+
+            model.train(True)
+
+        if num_epoch % save_after == 0:
+            out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
+            print 'saving',out_file
+            torch.save(model,out_file)
+
+        if dec_after is not None and dec_after[0]=='reduce':
+            # exp_lr_scheduler
+            if accuracy>=best_val:
+                best_val = accuracy
+                out_file_best = os.path.join(out_dir_train,'model_bestVal.pt')
+                print 'saving',out_file_best
+                torch.save(model,out_file_best)            
+            exp_lr_scheduler.step(loss_iter)
+
+        elif dec_after is not None and dec_after[0]!='exp':
+            exp_lr_scheduler.step()
+    
+    out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
+    print 'saving',out_file
+    torch.save(model,out_file)
+    
+    # print plot_arr[0]
+
+    util.writeFile(log_file, log_arr)
+    if len(plot_val_arr[0])==0:
+        visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
+    else:
+        lengend_strs = [pre_str+plot_str_posts for pre_str in ['Train ','Test '] for plot_str_posts in plot_strs_posts]
+
+        plot_vals = [(arr[0],arr[1]) for arr in plot_arr+plot_val_arr]
+        # print plot_vals
+        # print lengend_strs
+        visualize.plotSimple(plot_vals,out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=lengend_strs)
+        visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
+
+        # visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])   
+
+
+def train_model_recon_au(out_dir_train,
+                train_data,
+                test_data,
+                batch_size = None,
+                batch_size_val =None,
+                num_epochs = 100,
+                save_after = 20,
+                disp_after = 1,
+                plot_after = 10,
+                test_after = 1,
+                lr = 0.0001,
+                dec_after = 100, 
+                model_name = 'alexnet',
+                criterion = nn.CrossEntropyLoss(),
+                gpu_id = 0,
+                num_workers = 0,
+                model_file = None,
+                epoch_start = 0,
+                margin_params = None,
+                network_params = None,
+                just_encoder = False,
+                weight_decay = 0):
+
+    util.mkdir(out_dir_train)
+    log_file = os.path.join(out_dir_train,'log.txt')
+    plot_file = os.path.join(out_dir_train,'loss.jpg')
+    log_arr = []
+    plot_arr = [[[],[]],[[],[]],[[],[]],[[],[]]]
+    plot_val_arr =  [[[],[]],[[],[]],[[],[]],[[],[]]]
+    plot_val_acc_arr = [[],[]]
+    plot_strs_posts = ['Total','Margin','Margin AU', 'Recon']
+    plot_acc_file = os.path.join(out_dir_train,'val_accu.jpg')
+    
+    network = models.get(model_name,network_params)
+    # data_transforms = network.data_transforms
+    if model_file is not None:
+    #     model = network.model
+    # else:
+        if network_params is not None and just_encoder:
+            network.model.features = torch.load(model_file).features
+        else:
+            network.model = torch.load(model_file)
+    model = network.model
+
+    # print model
+
+    # train_data = dataset(train_file,data_transforms['train'])
+    # test_data = dataset(test_file,data_transforms['val'])
+    
+    if batch_size is None:
+        batch_size = len(train_data)
+
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+
+    train_dataloader = torch.utils.data.DataLoader(train_data, 
+                        batch_size=batch_size,
+                        shuffle=True, 
+                        num_workers=0)
+    
+    test_dataloader = torch.utils.data.DataLoader(test_data, 
+                        batch_size=batch_size_val,
+                        shuffle=False, 
+                        num_workers=num_workers)
+    
+    torch.cuda.device(gpu_id)
+    
+    model = model.cuda()
+    model.train(True)
+    
+    # optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
+    optimizer = torch.optim.Adam(network.get_lr_list(lr),weight_decay=weight_decay)
+    print optimizer
+    print dec_after
+    if dec_after is not None:
+        print dec_after
+        if dec_after[0] is 'step':
+            print dec_after
+            exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=dec_after[2])
+        elif dec_after[0] is 'exp':
+            print dec_after
+            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
+        elif dec_after[0] is 'reduce':
+            best_val = 0
+            exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
+            
+    if criterion=='spread':
+        # margin = margin_params['start']
+        criterion = Spread_Loss(**margin_params)
+
+    
+    recons=True
+
+    print 'RECON',recons
+    for num_epoch in range(epoch_start,num_epochs):
+
+        # if isinstance(criterion,Spread_Loss):
+        #     if num_epoch % margin_params['step'] ==0:
+        #         i = num_epoch//margin_params['step']
+        #         inc =  (1-margin_params['start'])/float(num_epochs//margin_params['step'])
+        #         margin = i*inc+margin_params['start']
+
+        for num_iter_train,batch in enumerate(train_dataloader):
+
+            data = Variable(batch['image'].cuda())
+            # print torch.min(data),torch.max(data)
+            # raw_input()
+            
+            if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                labels = Variable(batch['label'].float().cuda())
+            else:
+                labels = Variable(torch.LongTensor(batch['label']).cuda())
+
+            # print batch.keys()
+            # for k in batch.keys():
+            #     print k,batch[k].size()
+
+            labels_au = Variable(batch['label_au'].float().cuda())
+            bin_au = Variable(batch['bin_au'].float().cuda())
+
+            optimizer.zero_grad()
+
+            loss, margin_loss, margin_au_loss, recon_loss = model.margin_loss_multi(model(data,labels), labels, labels_au, bin_au) 
+
+            
+
+            loss_iter = loss.data[0]
+            loss.backward()
+            optimizer.step()
+            if dec_after is not None and dec_after[0]=='exp':
+                exp_lr_scheduler.step()
+            
+            num_iter = num_epoch*len(train_dataloader)+num_iter_train
+            for idx_loss,loss_curr in enumerate([loss, margin_loss, margin_au_loss, recon_loss]):
+
+                if idx_loss==2 and float(loss_curr.data)==0:
+                    continue
+                plot_arr[idx_loss][0].append(num_iter)
+                plot_arr[idx_loss][1].append(loss_curr.data)
+            
+            
+            str_display = 'lr: %.6f, iter: %d, loss: %.4f, margin: %.4f, margin_au: %.4f, recon: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss.data[0],margin_au_loss.data[0],recon_loss.data[0])
+            
+
+
+            log_arr.append(str_display)
+            print str_display
+
+            if num_iter % plot_after== 0 and num_iter>0:
+                util.writeFile(log_file, log_arr)
+                if len(plot_val_arr[0])==0:
+                    visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
+                else:
+                    
+                    lengend_strs = [pre_str+plot_str_posts for pre_str in ['Train ','Test '] for plot_str_posts in plot_strs_posts]
+
+                    plot_vals = [(arr[0],arr[1]) for arr in plot_arr+plot_val_arr]
+                    # print plot_vals
+                    # print lengend_strs
+                    visualize.plotSimple(plot_vals,out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=lengend_strs)
+
+                    visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
+
+
+        if num_epoch % test_after == 0:
+            model.eval()
+            predictions = []
+            labels_all = []
+            loss_epoch = []
+            margin_loss_epoch = []
+            margin_au_loss_epoch = []
+            recon_loss_epoch = []
+            for num_iter_test,batch in enumerate(test_dataloader):
+                labels_all.append(batch['label'].numpy())
+        
+                data = Variable(batch['image'].cuda())
+                if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                    labels = Variable(batch['label'].float().cuda())
+                else:
+                    labels = Variable(torch.LongTensor(batch['label']).cuda())
+
+                labels_au = Variable(batch['label_au'].float().cuda())
+                bin_au = Variable(batch['bin_au'].float().cuda())
+
+                output = model(data)
+                
+                loss, margin_loss, margin_au_loss, recon_loss = model.margin_loss_multi(output, labels, labels_au, bin_au) 
+                
+                loss_iter = loss.data[0]
+                
+                if isinstance(output, tuple):
+                    out = output[0].data.cpu().numpy()
+                else:
+                    out = output.data.cpu().numpy()
+                if len(labels.size())>1:
+                    predictions.append(out)
+                else:
+                    predictions.append(np.argmax(out,1))                
+                
+                loss_epoch.append(loss_iter)
+                margin_loss_epoch.append(margin_loss.data[0])
+                margin_au_loss_epoch.append(margin_au_loss.data[0])
+                recon_loss_epoch.append(recon_loss.data[0])
+
+            loss_iter = np.mean(loss_epoch)
+            margin_loss_iter = np.mean(margin_loss_epoch)
+            margin_au_loss_iter = np.mean(margin_au_loss_epoch)
+            recon_loss_iter = np.mean(recon_loss_epoch)
+            
+            num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)
+
+            for idx_loss,loss_curr in enumerate([loss_iter, margin_loss_iter, recon_loss_iter]):
+                plot_val_arr[idx_loss][0].append(num_iter)
+                plot_val_arr[idx_loss][1].append(loss_curr)
+            
+
+            str_display = 'lr: %.6f, val iter: %d, val loss: %.4f, margin: %.4f, margin_au: %.4f, recon %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss_iter,margin_au_loss_iter, recon_loss_iter)
+
+            log_arr.append(str_display)
+            print str_display
+            labels_all = np.concatenate(labels_all)
+            predictions = np.concatenate(predictions)
+
+            # print labels_all.shape,predictions.shape
+            if len(labels_all.shape)>1:
+                accuracy = get_auc(predictions,labels_all)
+            else:
+                accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+            plot_val_acc_arr[0].append(num_iter); plot_val_acc_arr[1].append(accuracy)
+            str_display = 'val accuracy: %.4f' %(accuracy)
+            log_arr.append(str_display)
+            print str_display
+            
+
+            model.train(True)
+
+        if num_epoch % save_after == 0:
+            out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
+            print 'saving',out_file
+            torch.save(model,out_file)
+
+        if dec_after is not None and dec_after[0]=='reduce':
+            # exp_lr_scheduler
+            if accuracy>=best_val:
+                best_val = accuracy
+                out_file_best = os.path.join(out_dir_train,'model_bestVal.pt')
+                print 'saving',out_file_best
+                torch.save(model,out_file_best)            
+            exp_lr_scheduler.step(loss_iter)
+
+        elif dec_after is not None and dec_after[0]!='exp':
+            exp_lr_scheduler.step()
+    
+    out_file = os.path.join(out_dir_train,'model_'+str(num_epoch)+'.pt')
+    print 'saving',out_file
+    torch.save(model,out_file)
+    
+    # print plot_arr[0]
+
+    util.writeFile(log_file, log_arr)
+    if len(plot_val_arr[0])==0:
+        visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
+    else:
+        lengend_strs = [pre_str+plot_str_posts for pre_str in ['Train ','Test '] for plot_str_posts in plot_strs_posts]
+
+        plot_vals = [(arr[0],arr[1]) for arr in plot_arr+plot_val_arr]
+        # print plot_vals
+        # print lengend_strs
+        visualize.plotSimple(plot_vals,out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=lengend_strs)
+        visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
+
+        # visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])   

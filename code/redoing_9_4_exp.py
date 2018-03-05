@@ -13,18 +13,19 @@ from helpers import util,visualize,augmenters
 
 
 
-def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False):
+def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
     num_epochs = epoch_stuff[1]
     epoch_start = 0
-    dec_after = ['exp',0.96,epoch_stuff[0],1e-6]
+    # dec_after = ['exp',0.96,epoch_stuff[0],1e-6]
+    dec_after = ['step',epoch_stuff[0],0.1]
 
     lr = lr
     im_resize = 110
     im_size = 96
-    save_after = num_epochs
+    save_after = 100
     type_data = 'train_test_files'; n_classes = 8;
     criterion = 'margin'
     criterion_str = criterion
@@ -34,17 +35,19 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     
     init = False
 
-    strs_append = '_'+'_'.join([str(val) for val in ['all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr])
+    strs_append = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr])
     pre_pend = 'ck_96_'
     
-    
+    lr_p=lr[:]
     for split_num in folds:
         
         if res:
-            strs_appendc = '_'.join([str(val) for val in ['all_aug','wdecay',wdecay,50,'step',50,0.1]+lr])
-            out_dir_train = os.path.join(out_dir_meta,'oulu_'+type_data+'_'+str(split_num)+'_'+strs_appendc)
-            model_file = os.path.join(out_dir_train,'model_49.pt')
-            epoch_start = 50
+
+            strs_appendc = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,True,'all_aug',criterion_str,init,'wdecay',wdecay,600,'step',600,0.1]+lr_p])
+            out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_appendc)
+            model_file = os.path.join(out_dir_train,'model_300.pt')
+            epoch_start = 300
+            lr =[0.1*lr_curr for lr_curr in lr_p]
         else:
             model_file = None    
 
@@ -55,7 +58,12 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         final_model_file = os.path.join(out_dir_train,'model_'+str(num_epochs-1)+'.pt')
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
+            # raw_input()
             continue 
+        else:
+            print 'not skipping', final_model_file
+            # raw_input()
+            # continue
 
         train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
         test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
@@ -64,11 +72,14 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         
         mean_im = scipy.misc.imread(mean_file).astype(np.float32)
         std_im = scipy.misc.imread(std_file).astype(np.float32)
+
+        class_weights = util.get_class_weights(util.readLinesFromFile(train_file))
+
         # print std_im.shape
         # print np.min(std_im),np.max(std_im)
         # raw_input()
 
-        list_of_to_dos = ['flip','rotate','scale_translate']
+        list_of_to_dos = ['flip','rotate','scale_translate','pixel_augment']
         
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
@@ -86,7 +97,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
         test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
         
-        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init)
+        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct)
         # if lr[0]==0:
         batch_size = 128
         batch_size_val = 128
@@ -127,19 +138,21 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
             all_lines.append(str_print)
         util.writeFile(param_file,all_lines)
 
-        train_model(**train_params)
-
-        test_params = dict(out_dir_train = out_dir_train,
-                model_num = num_epochs-1, 
-                train_data = train_data,
-                test_data = test_data,
-                gpu_id = 0,
-                model_name = model_name,
-                batch_size_val = batch_size_val,
-                criterion = criterion,
-                margin_params = margin_params,
-                network_params = network_params)
-        test_model(**test_params)
+        if reconstruct:
+            train_model_recon(**train_params)
+        else:
+            train_model(**train_params)
+            test_params = dict(out_dir_train = out_dir_train,
+                    model_num = num_epochs-1, 
+                    train_data = train_data,
+                    test_data = test_data,
+                    gpu_id = 0,
+                    model_name = model_name,
+                    batch_size_val = batch_size_val,
+                    criterion = criterion,
+                    margin_params = margin_params,
+                    network_params = network_params)
+            test_model(**test_params)
         
     getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
 
@@ -199,7 +212,9 @@ def train_khorrami_aug_oulu(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_cap
         print np.min(std_im),np.max(std_im)
         print mean_im.shape
         print np.min(mean_im),np.max(mean_im)
-        
+
+        class_weights = util.get_class_weights(util.readLinesFromFile(train_file))
+
         # raw_input()
 
         list_of_to_dos = ['flip','rotate','scale_translate']
@@ -220,7 +235,7 @@ def train_khorrami_aug_oulu(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_cap
         train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
         test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
         
-        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init)
+        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init, class_weights = class_weights)
         # if lr[0]==0:
         batch_size = 128
         batch_size_val = 128
@@ -282,19 +297,35 @@ def train_khorrami_aug_oulu(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_cap
 def main():
     
     folds = range(10)
+    # [9,2]
+    # range(10)
+    # range(9,10)
     # range(6)
-    epoch_stuff = [100,200]
-    lr = [0.001,0.001]
-    res = True
+    epoch_stuff = [600,600]
+    lr = [0.001,0.001,0.001]
+    # res = True
     route_iter = 3
 
-    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False)
+    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True)
 
-    meta_data_dir = 'train_test_files_preprocess_vl'
-    train_khorrami_aug_oulu(0, lr=lr, route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, meta_data_dir = meta_data_dir)
+    # folds = [9,2]
+    # epoch_stuff = [600,600]
+    # lr = [0.001,0.001,0.001]
+    
+    # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_9_4', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True)
+    
+    
 
-    meta_data_dir = 'train_test_files_preprocess_maheen_vl_gray'
-    train_khorrami_aug_oulu(0, lr=lr, route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, meta_data_dir = meta_data_dir)
+    # folds = range(2)+range(3,9)
+    # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True)
+
+    # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, class_weights = True)
+
+    # meta_data_dir = 'train_test_files_preprocess_vl'
+    # train_khorrami_aug_oulu(0, lr=lr, route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, meta_data_dir = meta_data_dir, class_weights = True)
+
+    # meta_data_dir = 'train_test_files_preprocess_maheen_vl_gray'
+    # train_khorrami_aug_oulu(0, lr=lr, route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, meta_data_dir = meta_data_dir, class_weights= True)
 
 
 

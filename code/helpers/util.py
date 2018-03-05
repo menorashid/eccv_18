@@ -135,7 +135,7 @@ def getAllSubDirectories(meta_dir):
     sub_dirs=[dir_curr for dir_curr in sub_dirs if dir_curr];
     return sub_dirs
     
-def get_class_weights(train_files):
+def get_class_weights(train_files,au=False):
     classes = [int(line_curr.split(' ')[1]) for line_curr in train_files]
     classes_uni = np.unique(classes)
     # print classes_uni
@@ -144,5 +144,28 @@ def get_class_weights(train_files):
     counts = counts/float(np.sum(counts))
     counts = 1./counts
     counts = counts/float(np.sum(counts))
-    # print counts
-    return counts
+    counts_class = counts
+    to_return = []
+    to_return.append(counts_class)
+
+    if au:
+        arr = []
+        for line_curr in train_files:
+            arr.append([int(val) for val in line_curr.split(' ')[2:]] )
+        arr = np.array(arr)
+        print arr.shape
+        arr_keep = arr[arr[:,0]>0,1:]
+        print arr_keep.shape
+        counts = np.sum(arr_keep,0)
+        print counts
+        counts = counts/float(np.sum(counts))
+        counts = 1./counts
+        counts = counts/float(np.sum(counts))    
+        print counts
+        print counts.shape
+        to_return.append(counts)
+    
+    if len(to_return)>1:
+        return tuple(to_return)
+    else:
+        return to_return[0]

@@ -102,6 +102,8 @@ class Dynamic_Capsule_Model_Super(nn.Module):
 
       # , images= None, reconstructions=None):
         is_cuda = next(self.parameters()).is_cuda
+        batch_size = labels.size(0)
+
         # print classes.size()
         if is_cuda:
         # temp = torch.sparse.torch.eye(classes.size(1))
@@ -130,15 +132,106 @@ class Dynamic_Capsule_Model_Super(nn.Module):
         # print margin_loss[0]
         # raw_input()
         margin_loss = margin_loss.sum()
+        margin_loss = margin_loss/ batch_size
 
         if self.reconstruct:
             reconstruction_loss = self.reconstruction_loss(reconstructions, images)
-            total_loss = (margin_loss + 0.00005 * reconstruction_loss) / images.size(0)
+            reconstruction_loss = (0.0000001 * reconstruction_loss)/batch_size
+            total_loss = margin_loss + reconstruction_loss
+            return total_loss, margin_loss, reconstruction_loss
         else:
-            total_loss = margin_loss/ labels.size(0)
+            total_loss = margin_loss
+            return total_loss
+        
 
-        return total_loss
+    def margin_loss_multi(self,  classes, labels, labels_au, bin_au):
+        if self.reconstruct:
+            images = classes[3]
+            reconstructions = classes[2]
+            classes_au = classes[1]
+            classes = classes[0]
+        else:
+            classes_au = classes[1]
+            classes = classes[0]
 
+      # , images= None, reconstructions=None):
+        is_cuda = next(self.parameters()).is_cuda
+        batch_size = labels.size(0)
+
+        # print classes.size()
+        if is_cuda:
+        # temp = torch.sparse.torch.eye(classes.size(1))
+            labels = Variable(torch.sparse.torch.eye(classes.size(1)).cuda().index_select(dim=0, index=labels.data))
+        else:
+            labels = Variable(torch.sparse.torch.eye(classes.size(1)).index_select(dim=0, index=labels.data))
+
+        left = F.relu(0.9 - classes, inplace=True) ** 2
+        right = F.relu(classes - 0.1, inplace=True) ** 2
+
+
+        margin_loss = labels * left + 0.5 * (1. - labels) * right
+        # print margin_loss[0]
+
+        classes_au = classes_au[:,:labels_au.size(1)]
+        
+
+        left_au = F.relu(0.9 - classes_au, inplace=True) ** 2
+        right_au = F.relu(classes_au - 0.1, inplace=True) ** 2
+        margin_loss_au = labels_au * left_au + 0.5 * (1. - labels_au) * right_au
+        
+        # print margin_loss_au.size(),bin_au.size()
+        # print margin_loss_au
+        # print bin_au
+        # print labels_au
+        
+        margin_loss_au = margin_loss_au * bin_au.view(bin_au.size(0),1)
+        # print margin_loss_au.size()
+
+
+
+        if hasattr(self, 'class_weights') and self.class_weights is not None:
+            # print margin_loss.size(),type(margin_loss)
+            
+            # print class_weights.size()
+            if is_cuda:
+                class_weights = torch.autograd.Variable(self.class_weights.cuda())
+            else:
+                class_weights = torch.autograd.Variable(self.class_weights)
+
+            margin_loss = margin_loss*class_weights
+
+        if hasattr(self, 'class_weights_au') and self.class_weights_au is not None:
+            # print margin_loss.size(),type(margin_loss)
+            
+            # print class_weights.size()
+            if is_cuda:
+                class_weights_au = torch.autograd.Variable(self.class_weights_au.cuda())
+            else:
+                class_weights_au = torch.autograd.Variable(self.class_weights_au)
+
+            margin_loss_au = margin_loss_au*class_weights_au
+
+
+
+        # print margin_loss[0]
+        # raw_input()
+        margin_loss = margin_loss.sum()
+        margin_loss = margin_loss/ batch_size
+
+        margin_loss_au = margin_loss_au.sum()
+        margin_loss_au = margin_loss_au/ max(torch.sum(labels_au.data),1)        
+
+        if self.reconstruct:
+            reconstruction_loss = self.reconstruction_loss(reconstructions, images)
+            reconstruction_loss = (0.0000001 * reconstruction_loss)/batch_size
+            if self.loss_weights is not None:
+                total_loss = self.loss_weights[0]*margin_loss + self.loss_weights[1]*margin_loss_au + self.loss_weights[2]*reconstruction_loss
+            else:    
+                total_loss = margin_loss + margin_loss_au + reconstruction_loss
+            return total_loss, margin_loss, margin_loss_au, reconstruction_loss
+        else:
+            total_loss = margin_loss + margin_loss_au
+            return total_loss, margin_loss, margin_loss_au
 
 
 class Dynamic_Capsule_Model(Dynamic_Capsule_Model_Super):

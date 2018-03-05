@@ -171,8 +171,145 @@ def create_256_train_test_files():
             util.writeFile(out_file,out_lines)
         
 
+def get_list_of_aus():
+    dir_files = '../data/ck_96/train_test_files'
+    num_folds = 10
+    lines = []
+    for file_pre_curr in ['train','test']:
+        train_file = os.path.join(dir_files,file_pre_curr+'_facs_'+str(0)+'.txt')
+        lines = lines+util.readLinesFromFile(train_file)
+
+    aus_all = []
+    for line in lines:
+        # print line
+        aus = [int(val) for val in line.split(' ')[1:]]
+        # print aus
+        aus = aus[0::2]
+        # print aus
+        # raw_input()
+        aus_all += aus 
+
+    print set(aus_all)
+
+    list_keep = [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 24, 25, 26, 27, 38]
+    print len(list_keep)
+    assert all(list_keep[i] <= list_keep[i+1] for i in xrange(len(list_keep)-1))
+
+    count_percent_left = []
+    for val in set(aus_all):
+        if val in list_keep:
+            count_val = aus_all.count(val)
+            count_percent = count_val/float(len(aus_all))
+            print val, count_val, len(aus_all), count_percent
+        else:
+            count_val = aus_all.count(val)
+            count_percent = count_val/float(len(aus_all))
+            if count_percent>0.01:
+                print 'leaving',val,count_percent
+            count_percent_left.append(count_percent)
+
+    print np.min(count_percent_left),np.max(count_percent_left)
+
+def merge_emo_facs(emo_file,facs_file,out_file,list_au_keep,idx_map):
+
+    assert os.path.exists(emo_file)
+    assert os.path.exists(facs_file)
+    
+    emo_lines = util.readLinesFromFile(emo_file)
+    facs_lines = util.readLinesFromFile(facs_file)
+
+    au_bin = np.zeros((len(emo_lines),np.max(idx_map)+1))
+    print 'au_bin.shape', au_bin.shape
+
+    emo_ims = [line.split(' ')[0] for line in emo_lines]
+    facs_ims = [line.split(' ')[0] for line in facs_lines]
+    for idx_facs,facs_im in enumerate(facs_ims):
+
+        idx_emo = emo_ims.index(facs_im)
+        facs = facs_lines[idx_facs]
+        
+        facs = [int(val) for val in facs.split(' ')[1:]]
+        facs = facs[::2]
+        found = 0
+        for facs_curr in facs:
+            if facs_curr in list_au_keep:
+                found = 1
+                idx_au = list_au_keep.index(facs_curr)
+                au_bin[idx_emo,idx_map[idx_au]] = 1
+
+        if not found:
+            print facs_lines[idx_facs]
+            print emo_lines[idx_emo]
+            raw_input()
+    
+    facs_bin = np.sum(au_bin,axis=1,keepdims=True)
+    print facs_bin.shape,np.min(facs_bin),np.max(facs_bin),np.sum(facs_bin>0)
+    facs_bin[facs_bin>0] = 1
+    
+    print np.sum(facs_bin),len(facs_lines),np.sum(facs_bin)==len(facs_lines)
+    print np.sum(au_bin,0)
+    
+    out_mat = np.concatenate((facs_bin,au_bin),1)
+    print out_mat.shape
+    assert out_mat.shape[0]==len(emo_lines)
+    assert out_mat.shape[1]==np.max(idx_map)+2
+    
+    if os.path.split(out_file)[1].startswith('train'):
+        assert np.all(np.sum(au_bin,0)>0)
+    
+
+    out_lines = []
+    for idx_emo_line,emo_line in enumerate(emo_lines):
+        facs_arr_str = [str(int(val)) for val in list(out_mat[idx_emo_line])]
+        out_line = emo_line+' '+' '.join(facs_arr_str)
+        # print out_line
+        # raw_input()
+        out_lines.append(out_line)
+
+    print out_file
+    util.writeFile(out_file,out_lines)
+
+
+        
+
+
+def make_combo_train_test_files():
+    dir_files = '../data/ck_96/train_test_files'
+    num_folds = 10
+    list_au_keep = [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 24, 25, 26, 27, 38]
+    assert all(list_au_keep[i] < list_au_keep[i+1] for i in xrange(len(list_au_keep)-1))
+
+    idx_26 = list_au_keep.index(26)
+    idx_map = range(idx_26)+[idx_26,idx_26]
+    print idx_map
+    idx_map = idx_map + range(len(idx_map)-1,len(list_au_keep)-1)
+    print idx_map
+    
+    assert len(idx_map)==len(list_au_keep)
+    for i in range(len(idx_map)):
+        print idx_map[i],list_au_keep[i]
+
+    # raw_input()
+    
+
+    for fold_curr in range(num_folds):
+        for file_pre in ['train','test']:
+            fold_curr = str(fold_curr)
+            emo_file = os.path.join(dir_files, '_'.join([file_pre,fold_curr+'.txt']))
+            facs_file = os.path.join(dir_files, '_'.join([file_pre,'facs',fold_curr+'.txt']))
+            out_file = os.path.join(dir_files, '_'.join([file_pre,'emofacscombo',fold_curr+'.txt']))
+            merge_emo_facs(emo_file,facs_file,out_file,list_au_keep,idx_map)
+
+
+
 def main():
-    save_dummy_std_vals()
+    # get_list_of_aus()
+    # list_au_keep = [1, 2, 4, 5, 6, 7, 9, 12, 14, 15, 16, 20, 23, 26]
+    # list_au_keep.sort()
+
+    make_combo_train_test_files()
+
+    # save_dummy_std_vals()
     # create_256_train_test_files()
 
     # saveCKresizeImages()
