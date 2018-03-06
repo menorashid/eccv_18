@@ -56,11 +56,11 @@ def get_auc(pred,gt):
     # ap = []
     # gt[gt>0]=1
     # gt[gt<0]=0
-    print pred
-    print gt
+    # print pred
+    # print gt
 
-    pred[pred>0]=1
-    pred[pred<=0]=0
+    pred[pred>0.5]=1
+    pred[pred<=0.5]=0
     # print pred
 
     ap = sklearn.metrics.f1_score(gt, pred,average='macro')
@@ -519,7 +519,8 @@ def test_model(out_dir_train,
                 loss_iter = 0
 
         elif criterion=='margin':
-            loss = model.margin_loss(model(data), labels) 
+            loss,a,b = model.margin_loss(model(data), labels) 
+
             loss_iter = loss.data[0]
         else:    
             loss = criterion(output, labels)    
@@ -867,12 +868,13 @@ def train_model_recon(out_dir_train,
             # print torch.min(data),torch.max(data)
             # raw_input()
             
-            if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+            if criterion=='marginmulti':
                 labels = Variable(batch['label'].float().cuda())
             else:
                 labels = Variable(torch.LongTensor(batch['label']).cuda())
             optimizer.zero_grad()
 
+            
             
             loss, margin_loss, recon_loss = model.margin_loss(model(data,labels), labels) 
 
@@ -924,11 +926,13 @@ def train_model_recon(out_dir_train,
                 labels_all.append(batch['label'].numpy())
         
                 data = Variable(batch['image'].cuda())
-                if isinstance(criterion,nn.MultiLabelSoftMarginLoss):
+                if criterion=='marginmulti':
                     labels = Variable(batch['label'].float().cuda())
                 else:
                     labels = Variable(torch.LongTensor(batch['label']).cuda())
                 output = model(data)
+                
+                
                 
                 loss, margin_loss, recon_loss = model.margin_loss(output, labels) 
                 

@@ -42,6 +42,7 @@ class CK_96_Dataset(generic_dataset):
         self.mean = scipy.misc.imread(mean_file).astype(np.float32)
         self.std = scipy.misc.imread(std_file).astype(np.float32)
         self.std[self.std==0]=1.
+
         
     def __getitem__(self, idx):
         train_file_curr = self.files[idx]
@@ -51,15 +52,16 @@ class CK_96_Dataset(generic_dataset):
         if image.shape[0]!=96 or image.shape[1]!=96:
             image = scipy.misc.imresize(image,(96,96)).astype(np.float32)
 
+        # print 'new_im'
         # print np.min(image),np.max(image)
         image = image-self.mean
-        # print np.min(image),np.max(image)
+        # print np.min(image),np.max(image),np.min(self.mean),np.max(self.mean)
         image = image/self.std
-        # print np.min(image),np.max(image)
-        # image = image- self.mean
+        # print np.min(image),np.max(image),np.min(self.std),np.max(self.std)
         image = image[:,:,np.newaxis]
         
         # print np.min(image), np.max(image)        
+        # raw_input()
         
         sample = {'image': image, 'label': label}
         sample['image'] = self.transform(sample['image'])
@@ -180,6 +182,38 @@ class CK_for_VGG(Oulu_Static_Dataset):
     def __init__(self, text_file, transform=None, bgr = False,color=False):
         super(Oulu_Static_Dataset, self).__init__(text_file,transform,bgr,color)
     
+
+
+class Bp4d_Dataset(generic_dataset):
+    def __init__(self, text_file, bgr = False, transform=None):
+        # super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
+        self.bgr = bgr
+        self.files = util.readLinesFromFile(text_file)
+        self.transform = transform
+        if transform is None:
+            self.transform = transforms.ToTensor()
+        else:
+            self.transform = transform
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        info = train_file_curr.split(' ')
+        train_file_curr = info[0]
+        labels = [int(val) for val in info[1:]]
+        labels = np.array(labels)
+        # .astype('float')
+        # labels[labels>0]=1
+        # labels[labels<1]=0
+        # labels[labels<0.5]=0.1
+
+
+        image = scipy.misc.imread(train_file_curr)
+        if self.bgr:
+            image = image[:,:,[2,1,0]]        
+        sample = {'image': image, 'label': labels}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
 
 
 class Disfa_10_6_Dataset(generic_dataset):

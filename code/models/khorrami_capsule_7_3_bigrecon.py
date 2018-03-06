@@ -13,12 +13,11 @@ import math
 
 class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
         self.num_classes = n_classes
-        self.loss_weights = loss_weights
         if class_weights is not None:
             self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
 
@@ -57,7 +56,7 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
                 nn.ReLU(inplace=True),
                 nn.Linear(512, 1024),
                 nn.ReLU(inplace=True),
-                nn.Linear(1024, 1024),
+                nn.Linear(1024, 48*48),
             )
             self.upsampler = nn.Upsample(size=(96,96), mode='bilinear')
 
@@ -94,9 +93,9 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
                 return classes
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights)
+        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct)
 
         if init:
             for idx_m,m in enumerate(model.features):

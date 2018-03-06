@@ -94,6 +94,8 @@ class Dynamic_Capsule_Model_Super(nn.Module):
         
     #     return loss
 
+    
+
     def margin_loss(self,  classes,labels):
         if self.reconstruct:
             images = classes[2]
@@ -137,6 +139,11 @@ class Dynamic_Capsule_Model_Super(nn.Module):
         if self.reconstruct:
             reconstruction_loss = self.reconstruction_loss(reconstructions, images)
             reconstruction_loss = (0.0000001 * reconstruction_loss)/batch_size
+
+            if self.loss_weights is not None:
+                reconstruction_loss = self.loss_weights[1]*reconstruction_loss
+                margin_loss = self.loss_weights[0]*margin_loss
+            
             total_loss = margin_loss + reconstruction_loss
             return total_loss, margin_loss, reconstruction_loss
         else:

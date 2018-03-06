@@ -9,6 +9,7 @@ import sklearn.metrics
 def print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt'):
 
     all_vals = []
+    all_vals_300 = []
     max_vals = []
     max_val_idx_all = []
 
@@ -23,7 +24,11 @@ def print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt')
         # val_accuracy = max(np.array(val_accuracy))
         
         # [-1]
+        # print len(val_accuracy)
+        # raw_input()
+        # val_accuracy = val_accuracy[:300]
         all_vals.append(val_accuracy[-1])
+        # all_vals_300.append(val_accuracy[299])
         max_vals.append(np.max(val_accuracy))
         max_val_idx_all.append(np.argmax(val_accuracy))
 
@@ -118,7 +123,8 @@ def view_loss_curves(dir_exp_meta,pre_split,post_split,range_splits,model_num):
     for split_num in range_splits:
         caption = [str(split_num)]
         dir_curr = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
-        loss_file = os.path.join(dir_curr, 'loss.jpg')
+        ims_to_disp = [os.path.join(dir_curr, 'loss.jpg'),os.path.join(dir_curr, 'val_accu.jpg')]
+        ims_to_disp = [im_curr for im_curr in ims_to_disp if os.path.exists(im_curr)]
         dirs_res = [os.path.join(dir_curr,'results_model_'+str_curr) for str_curr in [str(model_num),str(model_num)+'_center']]
         dirs_res = [dir_curr for dir_curr in dirs_res if os.path.exists(dir_curr)]
         for dir_res in dirs_res:
@@ -126,10 +132,10 @@ def view_loss_curves(dir_exp_meta,pre_split,post_split,range_splits,model_num):
             val_accuracy = util.readLinesFromFile(log_file)[-1]
             val_accuracy = val_accuracy.split(' ')[-1]
             caption.append(val_accuracy)
-        caption = ' '.join(caption)
-        im_curr = util.getRelPath(loss_file.replace(str_replace[0],str_replace[1]),dir_server)
-        ims_html.append([im_curr])
-        captions_html.append([caption])
+        caption = [' '.join(caption)]*len(ims_to_disp)
+        ims_html_curr = [util.getRelPath(loss_file.replace(str_replace[0],str_replace[1]),dir_server) for loss_file in ims_to_disp]
+        ims_html.append(ims_html_curr)
+        captions_html.append(caption)
 
     visualize.writeHTML(out_file_html,ims_html,captions_html,200,200)
     print out_file_html.replace(dir_server,'http://vision3.idav.ucdavis.edu:1000')

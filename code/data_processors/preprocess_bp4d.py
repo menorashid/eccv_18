@@ -101,11 +101,14 @@ def make_au_vec_per_frame(csv_file):
 
 def script_save_resize_faces():
     dir_meta= '../data/bp4d'
-    out_dir_meta = os.path.join(dir_meta,'preprocess_im_256_color_nodetect')
+    im_size = [110,110]
+    out_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(im_size[0])+'_color_nodetect')
     in_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
+    # in_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect')
+
     im_list_in = glob.glob(os.path.join(in_dir_meta,'*','*','*.jpg'))
 
-    im_size = [256,256]
+    
     savegray = False
     args = []
     for idx_im_in,im_in in enumerate(im_list_in):
@@ -134,11 +137,8 @@ def script_save_resize_faces():
     # content = []
     # out_im_all = [arg_curr[1] for arg_curr in args]
     # np.savez(os.path.join(dir_meta,'sizes.npz'),crop_sizes = np.array(crop_sizes),out_im_all = np.array(out_im_all))
-        
-def main():
-    script_save_resize_faces()
-    
-    return
+
+def make_anno_files():
     au_keep = [1,2,4,6,7,10,12,14,15,17,23,24]
     out_dir = '../data/bp4d/anno_text'
     util.mkdir(out_dir)
@@ -202,6 +202,97 @@ def main():
         out_file_anno = os.path.join(out_dir,out_file+'.txt')
         util.writeFile(out_file_anno,out_lines)
         print out_file_anno,len(out_lines),total_lines
+
+
+def make_train_test_subs():
+    dir_meta = '../data/bp4d'
+    im_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
+    out_dir_subs = os.path.join(dir_meta,'subs')
+    util.mkdir(out_dir_subs)
+
+    subs = [os.path.split(dir_curr)[1] for dir_curr in glob.glob(os.path.join(im_dir_meta,'*'))]
+    print subs
+    print len(subs)
+    subs.sort()
+    print subs
+    num_splits = 3
+    folds = []
+    for fold_num in range(num_splits):
+        fold_curr = subs[fold_num::num_splits]
+        folds.append(fold_curr)
+    
+    for fold_num in range(num_splits):
+        train_folds = []
+        for idx_fold,fold_curr in enumerate(folds):
+            if idx_fold!=fold_num:
+                train_folds = train_folds+fold_curr
+        test_folds = folds[fold_num]
+        out_file_train = os.path.join(out_dir_subs,'train_'+str(fold_num)+'.txt')
+        out_file_test = os.path.join(out_dir_subs,'test_'+str(fold_num)+'.txt')
+        assert len(train_folds)+len(test_folds)==len(list(set(train_folds+test_folds)))
+
+        print fold_num, len(train_folds),len(test_folds)
+        print out_file_train, out_file_test
+        util.writeFile(out_file_train, train_folds)
+        util.writeFile(out_file_test, test_folds)
+
+
+def write_train_file(out_file_train, out_dir_annos, out_dir_im, train_folds, replace_str):
+    all_anno_files = []
+    for sub_curr in train_folds:
+        all_anno_files= all_anno_files+glob.glob(os.path.join(out_dir_annos,sub_curr+'*.txt'))
+    
+    all_lines = []
+    for anno_file in all_anno_files:
+        all_lines = all_lines+util.readLinesFromFile(anno_file)
+
+    out_lines = []
+    for line_curr in all_lines:
+        out_line = line_curr.replace(replace_str,out_dir_im)
+        im_out = out_line.split(' ')[0]
+        assert os.path.exists(im_out)
+        
+        out_lines.append(out_line)
+
+    print len(out_lines)
+    print out_lines[0]
+    random.shuffle(out_lines)
+    util.writeFile(out_file_train,out_lines)
+    
+
+
+
+
+def make_train_test_files():
+    dir_meta = '../data/bp4d'
+    out_dir_subs = os.path.join(dir_meta,'subs')
+    out_dir_annos = os.path.join(dir_meta, 'anno_text')
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_nodetect')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
+    replace_str = '../data/bp4d/BP4D/BP4D-training'
+    util.mkdir(out_dir_files)
+    num_folds = 3
+
+    for fold_num in range(num_folds):
+        for file_pre_str in ['train','test']:
+            train_sub_file = os.path.join(out_dir_subs,file_pre_str+'_'+str(fold_num)+'.txt')
+            train_folds = util.readLinesFromFile(train_sub_file)
+            out_file_train = os.path.join(out_dir_files,file_pre_str+'_'+str(fold_num)+'.txt')
+            write_train_file(out_file_train, out_dir_annos, out_dir_im, train_folds, replace_str)
+
+
+
+
+
+
+def main():
+    make_train_test_files()
+    # make_train_test_subs()
+    # script_save_resize_faces()
+
+    # return
+    
 
 
 
