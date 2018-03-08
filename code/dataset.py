@@ -6,7 +6,7 @@ from torchvision import transforms
 from helpers import util, visualize
 import scipy.misc
 from PIL import Image
-
+import cv2
 
 class generic_dataset(Dataset):
     def __init__(self, text_file, transform=None):
@@ -189,6 +189,7 @@ class Bp4d_Dataset(generic_dataset):
         # super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
         self.bgr = bgr
         self.files = util.readLinesFromFile(text_file)
+        # [:1280]
         self.transform = transform
         if transform is None:
             self.transform = transforms.ToTensor()
@@ -207,9 +208,18 @@ class Bp4d_Dataset(generic_dataset):
         # labels[labels<0.5]=0.1
 
 
-        image = scipy.misc.imread(train_file_curr)
+        
         if self.bgr:
-            image = image[:,:,[2,1,0]]        
+            image = cv2.imread(train_file_curr)
+            # .astype(float32)
+            # print image.shape,type(image)
+            # image = scipy.misc.imread(train_file_curr)          
+            # print image.shape,type(image)
+            # raw_input()
+        else:
+            image = scipy.misc.imread(train_file_curr)          
+
+
         sample = {'image': image, 'label': labels}
         sample['image'] = self.transform(sample['image'])
 

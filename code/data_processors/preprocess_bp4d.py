@@ -1,3 +1,4 @@
+# import cv2
 import sys
 sys.path.append('./')
 import os
@@ -6,8 +7,9 @@ import glob
 import scipy.misc
 import numpy as np
 import random
-import cv2
+
 import multiprocessing
+import dlib
 
 def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
     if idx_file_curr%100==0:
@@ -40,6 +42,9 @@ def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
 
     return size_crop
 
+
+
+
 def save_resized_images((in_file,out_file,im_size,savegray,idx_file_curr)):
     if idx_file_curr%100==0:
         print idx_file_curr
@@ -54,37 +59,190 @@ def save_resized_images((in_file,out_file,im_size,savegray,idx_file_curr)):
 
     cv2.imwrite(out_file,roi)
 
+
+def test_face_detector():
     
+    face_detector_path = '../data/mmod_human_face_detector.dat'
+    face_detector = dlib.cnn_face_detection_model_v1(face_detector_path)
+    im_path = '../data/bp4d/preprocess_im_256_color_nodetect/M013/T3/267.jpg'
+    # M003/T3/052.jpg'
+    im = scipy.misc.imread(im_path)
+    print im.shape
+    bbox_all = face_detector(im, 1)
+    boxes = []
+    sizes = []
+    for i,bbox in enumerate(bbox_all):
+        bbox = bbox.rect
+        crop_box = [bbox.top(),bbox.bottom(),bbox.left(),bbox.right()]
+        sizes.append((crop_box[1]-crop_box[0])*(crop_box[3]-crop_box[2]))
+        boxes.append(crop_box)
+
+    best_box = boxes[np.argmax(sizes)]
+    size_r = best_box[1]-best_box[0]
+    size_c = best_box[3]-best_box[2]
+    pad = [size_r//4,size_c//4]
+    best_box = [max(0,best_box[0]-pad[0]),
+                min(im.shape[0],best_box[1]+pad[0]),
+                max(0,best_box[2]-pad[1]),
+                min(im.shape[1],best_box[3]+pad[1])]
+    print best_box
+    im_crop = im[best_box[0]:best_box[1],best_box[2]:best_box[3]]
+    print im_crop.shape
+
+    scipy.misc.imsave('../scratch/im_crop.jpg',im_crop)
+
+        # print bbox.right(),bbox.left(),bbox.top(),bbox.bottom()
+
+def saveCroppedFace_NEW((in_file, out_file, im_size, savegray, idx_file_curr)):
+    if idx_file_curr%100==0:
+        print idx_file_curr
+
+    classifier_path  = '../data/mmod_human_face_detector.dat'
+    face_detector = dlib.cnn_face_detection_model_v1(classifier_path)
+
+    im = scipy.misc.imread(in_file)
+    bbox_all = face_detector(im, 1)
+    boxes = []
+    sizes = []
+    if len(bbox_all)<1:
+        print 'PROBLEM'
+        return -1
+
+    for i,bbox in enumerate(bbox_all):
+        bbox = bbox.rect
+        crop_box = [bbox.top(),bbox.bottom(),bbox.left(),bbox.right()]
+        sizes.append((crop_box[1]-crop_box[0])*(crop_box[3]-crop_box[2]))
+        boxes.append(crop_box)
+
+    best_box = boxes[np.argmax(sizes)]
+    size_crop = np.max(sizes)
+
+    size_r = best_box[1]-best_box[0]
+    size_c = best_box[3]-best_box[2]
+    pad = [size_r//4,size_c//4]
+    best_box = [max(0,best_box[0]-pad[0]),
+                min(im.shape[0],best_box[1]+pad[0]),
+                max(0,best_box[2]-pad[1]),
+                min(im.shape[1],best_box[3]+pad[1])]
+    
+    im_crop = im[best_box[0]:best_box[1],best_box[2]:best_box[3]]
+    
+
+    if im_size is not None:
+        roi=cv2.resize(im_crop,tuple(im_size));
+    scipy.misc.imsave(out_file,roi)
+
+    return size_crop
+    
+
+def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr)):
+    # if idx_file_curr%100==0:
+    #     print idx_file_curr
+
+    classifier_path  = '../data/mmod_human_face_detector.dat'
+    face_detector = dlib.cnn_face_detection_model_v1(classifier_path)
+
+    for idx_file_curr,(in_file,out_file) in enumerate(file_pairs):
+        if idx_file_curr%100==0:
+            print idx_file_curr
+
+        im = scipy.misc.imread(in_file)
+        bbox_all = face_detector(im, 1)
+        boxes = []
+        sizes = []
+        if len(bbox_all)<1:
+            print in_file
+            print 'PROBLEM'
+            continue
+
+        for i,bbox in enumerate(bbox_all):
+            bbox = bbox.rect
+            crop_box = [bbox.top(),bbox.bottom(),bbox.left(),bbox.right()]
+            sizes.append((crop_box[1]-crop_box[0])*(crop_box[3]-crop_box[2]))
+            boxes.append(crop_box)
+
+        best_box = boxes[np.argmax(sizes)]
+        size_crop = np.max(sizes)
+
+        size_r = best_box[1]-best_box[0]
+        size_c = best_box[3]-best_box[2]
+        pad = [size_r//4,size_c//4]
+        best_box = [max(0,best_box[0]-pad[0]),
+                    min(im.shape[0],best_box[1]+pad[0]),
+                    max(0,best_box[2]-pad[1]),
+                    min(im.shape[1],best_box[3]+pad[1])]
+        
+        im_crop = im[best_box[0]:best_box[1],best_box[2]:best_box[3]]
+        
+
+        if im_size is not None:
+            roi=cv2.resize(im_crop,tuple(im_size));
+        scipy.misc.imsave(out_file,roi)
+
+        # return size_crop
+    
+
+
 
 def script_save_cropped_faces():
     dir_meta= '../data/bp4d'
-    out_dir_meta = os.path.join(dir_meta,'preprocess_im_96')
-    in_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
-    im_list_in = glob.glob(os.path.join(in_dir_meta,'*','*','*.jpg'))
+    out_dir_meta = os.path.join(dir_meta,'preprocess_im_110_color')
+    util.mkdir(out_dir_meta)
+    # in_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
 
-    im_size = [96,96]
-    savegray = True
+    in_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect')
+
+    im_list_in = glob.glob(os.path.join(in_dir_meta,'*','*','*.jpg'))
+    print len(im_list_in)
+    # raw_input()
+
+    im_size = [110,110]
+    savegray = False
     args = []
+    
+
+    # for idx_im_in,im_in in enumerate(im_list_in):
+    #     out_file = im_in.replace(in_dir_meta,out_dir_meta)
+    #     # if os.path.exists(out_file):
+    #     #     continue
+    #     out_dir_curr = os.path.split(out_file)[0]
+    #     # print out_dir_curr
+    #     util.makedirs(out_dir_curr)
+    #     args.append((im_in,out_file,im_size,savegray,idx_im_in))
+
+    args = []
+    file_pairs = []
     for idx_im_in,im_in in enumerate(im_list_in):
         out_file = im_in.replace(in_dir_meta,out_dir_meta)
-        out_dir_curr = os.path.split(out_file)[0]
-        # print out_dir_curr
-        util.makedirs(out_dir_curr)
-        args.append((im_in,out_file,im_size,savegray,idx_im_in))
+        if os.path.exists(out_file):
+            continue
+        file_pairs.append((im_in,out_file))
+
+    chunk_size = 500
+    chunks = [file_pairs[x:x+chunk_size] for x in range(0, len(file_pairs), chunk_size)]
+    args = [(chunk_curr,im_size,savegray,idx_im_in) for idx_im_in,chunk_curr in enumerate(chunks)]
+
+
+    #     out_dir_curr = os.path.split(out_file)[0]
+    #     # print out_dir_curr
+    #     util.makedirs(out_dir_curr)
+    #     args.append((im_in,out_file,im_size,savegray,idx_im_in))
 
     print len(args)
-    # args = args[:10]
+    # args = args[:1000]
     # for arg in args:
     #     print arg
-    #     size = saveCroppedFace(arg)
+    #     size = saveCroppedFace_NEW_batch(arg)
+    #     # saveCroppedFace(arg)
     #     raw_input()
 
 
-    pool = multiprocessing.Pool(multiprocessing.cpu_count())
-    crop_sizes = pool.map(saveCroppedFace,args)
+    pool = multiprocessing.Pool(4)
+    crop_sizes = pool.map(saveCroppedFace_NEW_batch,args)
     content = []
     out_im_all = [arg_curr[1] for arg_curr in args]
-    np.savez(os.path.join(dir_meta,'sizes.npz'),crop_sizes = np.array(crop_sizes),out_im_all = np.array(out_im_all))
+    np.savez(os.path.join(dir_meta,'sizes_256.npz'),crop_sizes = np.array(crop_sizes),out_im_all = np.array(out_im_all))
+
 
 
 def make_au_vec_per_frame(csv_file):
@@ -238,6 +396,7 @@ def make_train_test_subs():
 
 
 def write_train_file(out_file_train, out_dir_annos, out_dir_im, train_folds, replace_str):
+
     all_anno_files = []
     for sub_curr in train_folds:
         all_anno_files= all_anno_files+glob.glob(os.path.join(out_dir_annos,sub_curr+'*.txt'))
@@ -247,18 +406,76 @@ def write_train_file(out_file_train, out_dir_annos, out_dir_im, train_folds, rep
         all_lines = all_lines+util.readLinesFromFile(anno_file)
 
     out_lines = []
+    total_missing = 0
     for line_curr in all_lines:
         out_line = line_curr.replace(replace_str,out_dir_im)
         im_out = out_line.split(' ')[0]
-        assert os.path.exists(im_out)
-        
-        out_lines.append(out_line)
+        if os.path.exists(im_out):
+        # assert os.path.exists(im_out)
+            out_lines.append(out_line)
+        else:
+            # print im_out
+            total_missing+=1
 
+    print total_missing
     print len(out_lines)
     print out_lines[0]
     random.shuffle(out_lines)
     util.writeFile(out_file_train,out_lines)
     
+
+def save_color_as_gray((in_file,out_file,im_size,idx_file_curr)):
+    if idx_file_curr%1000 ==0:
+        print idx_file_curr
+
+    img = cv2.imread(in_file);
+    gray  =  cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if im_size is not None:
+        gray=cv2.resize(gray,tuple(im_size));
+    cv2.imwrite(out_file,gray)
+
+    
+
+def script_make_im_gray():
+    dir_meta = '../data/bp4d'
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
+    out_dir_files_new = os.path.join(dir_meta, 'train_test_files_96_gray')
+    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_96_gray')
+    util.mkdir(out_dir_files_new)
+
+    num_folds = 3
+    im_size = [96,96]
+    all_im = []
+    for fold_curr in range(num_folds):
+        train_file = os.path.join(out_dir_files,'train_'+str(fold_curr)+'.txt')
+        test_file = os.path.join(out_dir_files,'test_'+str(fold_curr)+'.txt')
+        all_data = util.readLinesFromFile(train_file)+util.readLinesFromFile(test_file)
+        all_im = all_im + [line_curr.split(' ')[0] for line_curr in all_data]
+
+    print len(all_im ),len(set(all_im))
+    all_im = list(set(all_im))
+    args = []
+    for idx_file_curr,file_curr in enumerate(all_im):
+        out_file_curr = file_curr.replace(out_dir_im,out_dir_im_new)
+        dir_curr = os.path.split(out_file_curr)[0]
+        util.makedirs(dir_curr)
+        # print out_file_curr
+        # print dir_curr
+        if not os.path.exists(out_file_curr):
+            args.append((file_curr,out_file_curr,im_size,idx_file_curr))
+
+    print len(args)
+    # for arg in args:
+    #     print arg
+    #     save_color_as_gray(arg)
+    #     raw_input()
+
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    pool.map(save_color_as_gray,args)
+    
+
 
 
 
@@ -270,6 +487,13 @@ def make_train_test_files():
 
     out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_nodetect')
     out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_96_gray')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
+
     replace_str = '../data/bp4d/BP4D/BP4D-training'
     util.mkdir(out_dir_files)
     num_folds = 3
@@ -282,12 +506,105 @@ def make_train_test_files():
             write_train_file(out_file_train, out_dir_annos, out_dir_im, train_folds, replace_str)
 
 
+def save_mean_std_im(im_rel_all, out_file_mean,out_file_std):
+    im_all = []
+    for im_file in im_rel_all:
+        im = scipy.misc.imread(im_file)
+        im = im[:,:,np.newaxis]
+        im_all.append(im)
+
+    print im_all[0].shape
+    im_all = np.concatenate(im_all,2)
+    
+
+    print im_all.shape, np.min(im_all),np.max(im_all)
+    mean_val = np.mean(im_all,axis=2)
+    print mean_val.shape,np.min(mean_val),np.max(mean_val)
+
+    std_val = np.std(im_all,axis=2)
+    print std_val.shape,np.min(std_val),np.max(std_val)
+    scipy.misc.imsave(out_file_mean,mean_val)
+    scipy.misc.imsave(out_file_std,std_val)
+
+
+def make_select_mean_files(dir_files,num_folds):
+
+    num_per_video = 20
+
+    for fold_num in range(num_folds):
+        print fold_num
+
+        train_file = os.path.join(dir_files,'train_'+str(fold_num)+'.txt')
+        im_files = util.readLinesFromFile(train_file)
+        im_files = [line_curr.split(' ')[0] for line_curr in im_files]
+        print len(im_files)
+        num_videos = [os.path.split(im_file)[0] for im_file in im_files]
+        num_videos = list(set(num_videos))
+        print len(num_videos)
+
+        im_rel_all = []
+
+        for video_curr in num_videos:
+            im_rel = [im_file for im_file in im_files if im_file.startswith(video_curr)]
+            random.shuffle(im_rel)
+            im_rel_all = im_rel_all+im_rel[:num_per_video]
+
+        print len(im_rel_all)
+
+        out_file_mean = os.path.join(dir_files,'train_'+str(fold_num)+'_mean.png')
+        out_file_std = os.path.join(dir_files,'train_'+str(fold_num)+'_std.png')
+        save_mean_std_im(im_rel_all, out_file_mean,out_file_std)
+
+
+
+
 
 
 
 
 def main():
-    make_train_test_files()
+
+    import face_alignment
+    from skimage import io
+
+    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, enable_cuda=True, flip_input=False)
+    print fa
+
+    # input = io.imread('../data/bp4d/BP4D/BP4D-training/F001/T1/2440.jpg')
+    dir_im = '../data/bp4d/BP4D/BP4D-training/F001/T1'
+    preds = fa.process_folder(dir_im, all_faces = False)
+
+    print preds
+
+    return
+    # script_make_im_gray()
+    # test_face_detector()
+
+    # script_save_cropped_faces()
+    # make_train_test_files()
+
+    dir_meta = '../data/bp4d'
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
+    make_select_mean_files(out_dir_files,3)
+
+
+    return
+
+    dir_meta = '../data/bp4d'
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
+    for fold_num in range(3):
+        train_file = os.path.join(out_dir_files,'train_'+str(fold_num)+'.txt')
+        test_file = os.path.join(out_dir_files,'test_'+str(fold_num)+'.txt')
+        train_data = util.readLinesFromFile(train_file)
+        test_data = util.readLinesFromFile(test_file)
+        train_folders = [os.path.split(line_curr.split(' ')[0])[0] for line_curr in train_data]
+        test_folders = [os.path.split(line_curr.split(' ')[0])[0] for line_curr in test_data]
+        train_folds = list(set(train_folders))
+        test_folds = list(set(test_folders))
+        print len(train_folds),len(test_folds),len(set(train_folds+test_folds)),len(train_folds)+len(test_folds)
+        print np.in1d(test_folds,train_folds)
+
+    # make_train_test_files()
     # make_train_test_subs()
     # script_save_resize_faces()
 

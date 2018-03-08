@@ -42,14 +42,14 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
         self.features = []
         self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r))
+        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r))
         self.features = nn.Sequential(*self.features)
         
             
         if self.reconstruct:
             self.reconstruction_loss = nn.MSELoss(size_average=False)
             self.decoder = nn.Sequential(
-                nn.Linear(16 * self.num_classes, 512),
+                nn.Linear(32 * self.num_classes, 512),
                 nn.ReLU(inplace=True),
                 nn.Linear(512, 1024),
                 nn.ReLU(inplace=True),
@@ -129,7 +129,7 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
         margin_loss = margin_loss/ batch_size
         
         if self.reconstruct:
-            reconstruction_loss = self.reconstruction_loss(reconstructions, images/255.)
+            reconstruction_loss = self.reconstruction_loss(reconstructions, images)
             reconstruction_loss = (0.00001 * reconstruction_loss)/batch_size
             # reconstruction_loss = reconstruction_loss/batch_size
             # (0.0000001 * reconstruction_loss)/batch_size

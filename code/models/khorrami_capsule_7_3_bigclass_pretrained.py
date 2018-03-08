@@ -11,9 +11,9 @@ from torch.autograd import Variable
 import math
 
 
-class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
+class Khorrami_Capsule_BigClass_Pretrained(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False,loss_weights=None):
+    def __init__(self,n_classes, model_file ,r=3,class_weights=None, reconstruct = False, loss_weights = None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
@@ -22,34 +22,40 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         if class_weights is not None:
             self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
 
-        if pool_type=='nopool':
-            stride=2
-        else:
-            stride=1
+        # if pool_type=='nopool':
+        #     stride=2
+        # else:
+        #     stride=1
+        self.features = torch.load(model_file)
+        # print self.loaded_model
+        # raw_input()
+        # loaded_weights = np.load(model_file)['arr_0']
+        
+        
+        
+        # self.features =[]
+        # self.features.append(nn.Conv2d(1, 64, 5, stride=2,padding=2))
+        # self.features.append(nn.ReLU(True))
+        # self.features.append(nn.MaxPool2d(2,2))
+        # self.features.append(nn.Conv2d(64, 128, 5, stride=2,padding=2))
+        # self.features.append(nn.ReLU(True))
+        # self.features.append(nn.MaxPool2d(2,2))
+        # self.features = nn.Sequential(*self.features)
+        # self.features[0].weight.data = torch.Tensor(loaded_weights[1])
+        # self.features[0].bias.data = torch.Tensor(loaded_weights[1])
+        # self.features[3].weight.data = torch.Tensor(loaded_weights[2])
+        # self.features[3].bias.data = torch.Tensor(loaded_weights[3])
+        # del loaded_weights
+        
+        
 
-        self.features = []
-        self.features.append(nn.Conv2d(1, 64, 5, stride=stride,padding=2))
-        self.features.append(nn.ReLU(True))
-        if pool_type=='max':
-            self.features.append(nn.MaxPool2d(2,2))
-        elif pool_type=='avg':
-            self.features.append(nn.AvgPool2d(2,2))
+
+
+        self.caps = []
+        self.caps.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
+        self.caps.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r))
+        self.caps = nn.Sequential(*self.caps)
         
-        self.features.append(nn.Conv2d(64, 128, 5, stride=stride,padding=2))
-        self.features.append(nn.ReLU(True))
-        if pool_type=='max':
-            self.features.append(nn.MaxPool2d(2,2))
-        elif pool_type=='avg':
-            self.features.append(nn.AvgPool2d(2,2))
-        
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
-        
-        
-        self.features = nn.Sequential(*self.features)
-        
-        
-        self.caps = CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r)
-            
         if self.reconstruct:
             self.reconstruction_loss = nn.MSELoss(size_average=False)
             self.decoder = nn.Sequential(
@@ -61,10 +67,16 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
             )
             self.upsampler = nn.Upsample(size=(96,96), mode='bilinear')
 
+        # return self
+        
+
     
     def forward(self, data, y = None,return_caps = False):
         x = self.features(data)
+        # print x.size()
         x = self.caps(x)
+        # print x.size()
+        # raw_input()
         x = x.squeeze()
         
         classes = (x ** 2).sum(dim=-1) ** 0.5
@@ -94,9 +106,11 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
                 return classes
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
+    def __init__(self,n_classes=8,model_file=None,r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights)
+        model = Khorrami_Capsule_BigClass_Pretrained(n_classes,model_file,r,class_weights,reconstruct,loss_weights)
+        # print self.model
+        # raw_input()
 
         if init:
             for idx_m,m in enumerate(model.features):
@@ -116,13 +130,38 @@ class Network:
                 
         self.model = model
         
+        
     
     def get_lr_list(self, lr):
-        lr_list= [{'params': self.model.features.parameters(), 'lr': lr[0]}]+[{'params': self.model.caps.parameters(), 'lr': lr[1]}]
+        # print self.model
+
+        lr_list =[]
+        module_list = [self.model.features,self.model.caps]
         if self.model.reconstruct:
-            lr_list = lr_list + [{'params': self.model.decoder.parameters(), 'lr': lr[2]}]
-            
+            module_list.append(self.model.decoder)
+
+        for lr_curr,param_set in zip(lr,module_list):
+            if lr_curr==0:
+                for param in param_set.parameters():
+                    param.requires_grad = False
+            else:
+                lr_list.append({'params': param_set.parameters(), 'lr': lr_curr})
+                
         return lr_list
+
+
+
+        # lr_list= [{'params': self.model.features.parameters(), 'lr': lr[0]}]+[{'params': self.model.caps.parameters(), 'lr': lr[1]}]
+        # if self.model.reconstruct:
+        #     lr_list = lr_list + [{'params': self.model.decoder.parameters(), 'lr': lr[2]}]
+            
+        # return lr_list
+
+
+# def temp(model_file):
+#     x = torch.load(model_file)
+#     x.model.
+
 
 
 def main():

@@ -124,7 +124,7 @@ def train_model(out_dir_train,
     train_dataloader = torch.utils.data.DataLoader(train_data, 
                         batch_size=batch_size,
                         shuffle=True, 
-                        num_workers=0)
+                        num_workers=num_workers)
     
     test_dataloader = torch.utils.data.DataLoader(test_data, 
                         batch_size=batch_size_val,
@@ -785,6 +785,9 @@ def train_model_recon(out_dir_train,
 
     util.mkdir(out_dir_train)
     log_file = os.path.join(out_dir_train,'log.txt')
+
+    log_file_writer = open(log_file,'wb')
+    
     plot_file = os.path.join(out_dir_train,'loss.jpg')
     log_arr = []
     plot_arr = [[[],[]],[[],[]],[[],[]]]
@@ -818,7 +821,7 @@ def train_model_recon(out_dir_train,
     train_dataloader = torch.utils.data.DataLoader(train_data, 
                         batch_size=batch_size,
                         shuffle=True, 
-                        num_workers=0)
+                        num_workers=num_workers)
     
     test_dataloader = torch.utils.data.DataLoader(test_data, 
                         batch_size=batch_size_val,
@@ -900,7 +903,11 @@ def train_model_recon(out_dir_train,
             print str_display
 
             if num_iter % plot_after== 0 and num_iter>0:
-                util.writeFile(log_file, log_arr)
+                # util.writeFile(log_file, log_arr)
+                for string in log_arr:
+                    log_file_writer.write(string+'\n')
+                log_arr = []
+
                 if len(plot_val_arr[0])==0:
                     visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
                 else:
@@ -934,9 +941,11 @@ def train_model_recon(out_dir_train,
                 
                 
                 
-                loss, margin_loss, recon_loss = model.margin_loss(output, labels) 
+                losses = model.margin_loss(output, labels) 
+                losses = [loss_curr.data[0] for loss_curr in losses]
+                loss_iter, margin_loss_iter, recon_loss_iter = losses
+
                 
-                loss_iter = loss.data[0]
                 
                 if isinstance(output, tuple):
                     out = output[0].data.cpu().numpy()
@@ -948,13 +957,17 @@ def train_model_recon(out_dir_train,
                     predictions.append(np.argmax(out,1))                
                 
                 loss_epoch.append(loss_iter)
-                margin_loss_epoch.append(margin_loss.data[0])
-                recon_loss_epoch.append(recon_loss.data[0])
+                margin_loss_epoch.append(margin_loss_iter)
+                recon_loss_epoch.append(recon_loss_iter)
+                
+                num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)+num_iter_test
+                str_display = 'lr: %.6f, val iter: %d, val loss: %.4f, margin: %.4f, recon: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss_iter,recon_loss_iter)
+                log_arr.append(str_display)
+                print str_display
 
             loss_iter = np.mean(loss_epoch)
             margin_loss_iter = np.mean(margin_loss_epoch)
             recon_loss_iter = np.mean(recon_loss_epoch)
-            
             num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)
 
             for idx_loss,loss_curr in enumerate([loss_iter, margin_loss_iter, recon_loss_iter]):
@@ -1006,7 +1019,11 @@ def train_model_recon(out_dir_train,
     
     # print plot_arr[0]
 
-    util.writeFile(log_file, log_arr)
+    # util.writeFile(log_file, log_arr)
+    for string in log_arr:
+        log_file_writer.write(string+'\n')
+    log_arr = []
+
     if len(plot_val_arr[0])==0:
         visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])
     else:
@@ -1019,7 +1036,7 @@ def train_model_recon(out_dir_train,
         visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
 
         # visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])   
-
+    log_file_writer.close()
 
 def train_model_recon_au(out_dir_train,
                 train_data,
@@ -1294,3 +1311,176 @@ def train_model_recon_au(out_dir_train,
         visualize.plotSimple([(plot_val_acc_arr[0],plot_val_acc_arr[1])],out_file = plot_acc_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Accuracy',legend_entries=['Val'])
 
         # visualize.plotSimple([(plot_arr[0],plot_arr[1]),(plot_val_arr[0],plot_val_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train','Val'])   
+
+
+
+def test_model_recon(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                gpu_id,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss(),
+                margin_params  = None,
+                network_params = None,
+                post_pend = '',
+                model_nums = None,barebones = False):
+
+    out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num)+post_pend)
+    util.mkdir(out_dir_results)
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_file = os.path.join(out_dir_results,'log.txt')
+    log_arr=[]
+
+
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+    
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=0)
+    
+    print len(test_data)
+
+    torch.cuda.device(gpu_id)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
+
+    predictions = []
+    labels_all = []
+    out_all = []
+    recon_all = []
+
+    recons=True
+
+    print 'RECON',recons
+
+    
+    for num_iter,batch in enumerate(test_dataloader):
+        predictions = []
+        labels_all = []
+        loss_epoch = []
+        margin_loss_epoch = []
+        recon_loss_epoch = []
+        recon_all = []
+        recon_all_gt = []
+        caps_all = []
+        im_org = []
+
+        labels_all.append(batch['label'].numpy())
+
+        data = Variable(batch['image'].cuda())
+        # print num_iter, data.size()
+        # continue
+
+        if criterion=='marginmulti':
+            labels = Variable(batch['label'].float().cuda())
+        else:
+            labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+        output = model(data, return_caps = True)
+        # print output
+        # print labels
+        # raw_input()
+        losses = model.margin_loss(output, labels) 
+        losses = [loss_curr.data[0] for loss_curr in losses]
+        loss_iter, margin_loss_iter, recon_loss_iter = losses
+
+        
+        if isinstance(output, tuple):
+            
+
+            output = list(output)
+            if barebones:
+                out = output[0].data.cpu().numpy()
+            else:
+                output = [val.data.cpu().numpy() for val in output]
+                out, reconstructions, data_c, caps = output
+                recon_all.append(reconstructions)
+                im_org.append(data_c)
+                caps_all.append(caps)
+
+                output_gt = model(data,labels, return_caps = True)
+                reconstructions_gt = output_gt[1]
+                reconstructions_gt = reconstructions_gt.data.cpu().numpy()
+                recon_all_gt.append(reconstructions_gt)
+            
+        else:
+            out = output.data.cpu().numpy()
+        
+        if len(labels.size())>1:
+            predictions.append(out)
+        else:
+            predictions.append(np.argmax(out,1))                
+        
+        loss_epoch.append(loss_iter)
+        margin_loss_epoch.append(margin_loss_iter)
+        recon_loss_epoch.append(recon_loss_iter)
+        
+        # num_iter = num_epoch*len(train_dataloader)+len(train_dataloader)
+        str_display = 'val iter: %d, val loss: %.4f, margin: %.4f, recon: %.4f' %(num_iter,loss_iter,margin_loss_iter,recon_loss_iter)
+        log_arr.append(str_display)
+        print str_display
+        
+        # labels_all = np.concatenate(labels_all)
+        labels_all = labels_all[0]
+        # predictions = np.concatenate(predictions)
+        predictions = predictions[0]
+        print os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all.shape
+        np.save(os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all)
+        np.save(os.path.join(out_dir_results,'predictions_'+str(num_iter)+'.npy'),predictions)
+        
+        if len(recon_all)>0:
+            # recon_all = np.concatenate(recon_all,axis=0)
+            recon_all = recon_all[0]
+            # recon_all_gt = np.concatenate(recon_all_gt,axis=0)
+            recon_all_gt = recon_all_gt[0]
+            # caps_all = np.concatenate(caps_all,axis=0)
+            caps_all = caps_all[0]
+            # im_org = np.concatenate(im_org,axis=0)
+            im_org = im_org[0]
+            np.save(os.path.join(out_dir_results,'recon_all_'+str(num_iter)+'.npy'),recon_all)
+            np.save(os.path.join(out_dir_results,'recon_all_gt_'+str(num_iter)+'.npy'),recon_all_gt)
+            np.save(os.path.join(out_dir_results,'caps_all_'+str(num_iter)+'.npy'),caps_all)
+            np.save(os.path.join(out_dir_results,'im_org_'+str(num_iter)+'.npy'),im_org)
+
+
+
+
+    loss_iter = np.mean(loss_epoch)
+    margin_loss_iter = np.mean(margin_loss_epoch)
+    recon_loss_iter = np.mean(recon_loss_epoch)
+    
+    str_display = 'val iter: %d, val loss mean: %.4f, margin mean: %.4f, recon mean: %.4f' %(num_iter,loss_iter,margin_loss_iter,recon_loss_iter)
+    log_arr.append(str_display)
+    print str_display
+        
+
+    
+
+    
+
+    print out_dir_results
+
+
+
+
+    # print labels_all.shape,predictions.shape
+    if len(labels_all.shape)>1:
+        accuracy = get_auc(predictions,labels_all)
+    else:
+        accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+
+    str_display = 'val accuracy: %.4f' %(accuracy)
+    log_arr.append(str_display)
+    print str_display
+    
+
+    util.writeFile(log_file, log_arr)
+    
+
+
+
