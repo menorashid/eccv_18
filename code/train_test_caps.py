@@ -42,8 +42,9 @@ class Exp_Lr_Scheduler:
         for idx_param_group,param_group in enumerate(self.optimizer.param_groups): 
             # print idx_param_group,param_group['lr'],
             if self.init_lr[idx_param_group]!=0:
-                new_lr = self.init_lr[idx_param_group] * self.decay_rate **(self.step_curr/self.decay_steps)
+                new_lr = self.init_lr[idx_param_group] * self.decay_rate **(self.step_curr/float(self.decay_steps))
                 new_lr = max(new_lr ,self.min_lr)
+                # print new_lr
                 param_group['lr'] = new_lr
             # print param_group['lr']
 

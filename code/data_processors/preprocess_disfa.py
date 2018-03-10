@@ -11,6 +11,115 @@ import matplotlib.pyplot as plt
 import skimage.transform
 import multiprocessing
 import random
+import preprocess_bp4d
+
+def script_make_im_gray():
+    dir_meta = '../data/disfa'
+    out_dir_im = os.path.join(dir_meta, 'Videos_LeftCamera_frames_200')
+    # ../data/disfa/preprocess_im_200_color_align
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
+    # out_dir_files_new = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+    util.mkdir(out_dir_im_new)
+
+    num_folds = 3
+    im_size = [110,110]
+    # [96,96]
+    # all_im = []
+    # for fold_curr in range(num_folds):
+    #     train_file = os.path.join(out_dir_files,'train_'+str(fold_curr)+'.txt')
+    #     test_file = os.path.join(out_dir_files,'test_'+str(fold_curr)+'.txt')
+    #     all_data = util.readLinesFromFile(train_file)+util.readLinesFromFile(test_file)
+    #     all_im = all_im + [line_curr.split(' ')[0] for line_curr in all_data]
+
+    all_im = glob.glob(os.path.join(out_dir_im,'*','*.jpg'))
+    print len(all_im ),len(set(all_im))
+    
+    all_im = list(set(all_im))
+    args = []
+    for idx_file_curr,file_curr in enumerate(all_im):
+        out_file_curr = file_curr.replace(out_dir_im,out_dir_im_new)
+        dir_curr = os.path.split(out_file_curr)[0]
+        util.makedirs(dir_curr)
+        # print out_file_curr
+        # print dir_curr
+        if not os.path.exists(out_file_curr):
+            args.append((file_curr,out_file_curr,im_size,idx_file_curr))
+
+    print len(args)
+    # for arg in args:
+    #     print arg
+    #     preprocess_bp4d.save_color_as_gray(arg)
+    #     raw_input()
+
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    pool.map(preprocess_bp4d.save_color_as_gray,args)
+    
+
+def script_change_train_test():
+    dir_meta = '../data/disfa'
+    
+    out_dir_files = os.path.join(dir_meta,'train_test_10_6_method')
+    out_dir_files_new = os.path.join(dir_meta, 'train_test_10_6_method_110_gray_align')
+    util.mkdir(out_dir_files_new)
+
+    out_dir_im = os.path.join(dir_meta, 'Videos_LeftCamera_frames_200')
+    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+
+    num_folds = 10
+
+    for fold_curr in range(num_folds):
+        for file_pre in ['train','test']:
+            file_curr = os.path.join(out_dir_files,file_pre+'_'+str(fold_curr)+'.txt')
+            lines = util.readLinesFromFile(file_curr)
+
+            out_file = os.path.join(out_dir_files_new,file_pre+'_'+str(fold_curr)+'.txt')
+            
+            out_lines = []
+            for line_curr in lines:
+                out_line = line_curr.replace(out_dir_im,out_dir_im_new)
+                im_curr = line_curr.split(' ')[0]
+                assert os.path.exists(im_curr)
+                out_lines.append(out_line)
+
+            # print out_lines[0]
+            print len(out_lines)
+            print out_file
+
+            # raw_input()
+            util.writeFile(out_file,out_lines)
+
+
+def script_save_mean_std_files():
+
+    dir_meta = '../data/disfa'
+    # out_dir_files_new = os.path.join(dir_meta, 'train_test_10_6_method_110_gray_align')
+    # num_folds = 10
+    # jump = 1
+
+    out_dir_files_new = os.path.join(dir_meta, 'train_test_8_au_all_method_110_gray_align')
+    num_folds = 3
+    jump = 10
+
+    for fold_curr in range(num_folds):
+        train_file = os.path.join(out_dir_files_new,'train_'+str(fold_curr)+'.txt')
+        lines = util.readLinesFromFile(train_file)
+        ims_rel = [line_curr.split(' ')[0] for line_curr in lines]
+        ims_rel = ims_rel[::jump]
+        print len(ims_rel)
+        out_file_mean = os.path.join(out_dir_files_new,'train_'+str(fold_curr)+'_mean.png')
+        out_file_std = os.path.join(out_dir_files_new,'train_'+str(fold_curr)+'_std.png')
+
+        print out_file_mean
+        print out_file_std
+        print train_file
+        preprocess_bp4d.save_mean_std_im(ims_rel,out_file_mean,out_file_std)
+
+    
+
+
+
 
 def get_frame_au_anno(au_files):
     num_frames = len(util.readLinesFromFile(au_files[0]))
@@ -353,14 +462,19 @@ def make_folds():
     dir_meta = '../data/disfa'
     dir_im_meta = os.path.join(dir_meta,'Videos_LeftCamera_frames_200')
     dir_anno_meta = os.path.join(dir_meta,'ActionUnit_Labels')
-    out_dir_folds = os.path.join(dir_meta,'folds_10')
+    # num_folds = 10
+    # out_dir_folds = os.path.join(dir_meta,'folds_'+str(num_folds))
+
+    num_folds = 3
+    out_dir_folds = os.path.join(dir_meta,'folds_'+str(num_folds))
+    
     util.mkdir(out_dir_folds)
 
     list_subs = glob.glob(os.path.join(dir_anno_meta,'*'))
     list_subs = [os.path.split(sub)[1] for sub in list_subs]
     
     list_subs.sort()
-    num_folds = 10
+    
     all_folds = []
     for idx_fold in range(num_folds):
         all_folds.append(list_subs[idx_fold::num_folds])
@@ -420,6 +534,183 @@ def make_folds_val():
         util.writeFile(train_file,train_fold)
         util.writeFile(test_file,test_fold)
         util.writeFile(val_file,val_fold)
+
+
+
+def make_disfa_800_1600_anno():
+
+    dir_meta = '../data/disfa'
+    dir_im_meta = os.path.join(dir_meta,'Videos_LeftCamera_frames_200')
+    pre_im_str = 'LeftVideo'
+    post_im_str = '_comp'
+
+    dir_anno_meta = os.path.join(dir_meta,'ActionUnit_Labels')
+    out_dir_volume = os.path.join(dir_meta,'anno_volume')
+    out_dir_annos = os.path.join(dir_meta,'sub_annos_800_1600_method')
+    util.mkdir(out_dir_annos)
+
+    list_subs = glob.glob(os.path.join(dir_anno_meta,'*'))
+    list_subs = [os.path.split(sub)[1] for sub in list_subs]    
+
+    aus_keep = [1,2,4,6,9,12,25,26]
+    aus_keep.sort()
+
+    list_aus = [1,12,15,17,2,20,25,26,4,5,6,9]
+    list_aus.sort()
+    idx_keep = [1 if au in aus_keep else 0 for au in list_aus ]
+    
+    total_reasonable = 0
+
+
+    for sub in list_subs:
+        im_dir = os.path.join(dir_im_meta,pre_im_str+sub+post_im_str)
+        im_files = glob.glob(os.path.join(im_dir,'*.jpg'))
+        im_files.sort()
+
+
+        volume_file = os.path.join(out_dir_volume,sub+'.npy')
+        volume = np.load(volume_file)
+        
+
+        
+        assert volume.shape[0]==len(im_files)
+
+        volume = volume[:,np.array(idx_keep)>0]
+        print np.unique(volume)
+        
+        volume_pos = np.array(volume)
+        volume_pos[volume_pos<3] = 0
+        volume_pos[volume_pos>=3] = 1
+        bin_pos = np.sum(volume_pos,1)>0
+
+        print 'num_pos',np.sum(bin_pos) 
+        
+        volume_neg = np.array(volume)
+        
+        volume_neg[volume_neg==0]=-1
+        volume_neg[volume_neg>0]=0
+        volume_neg[volume_neg<0]=1
+
+        bin_neg = np.sum(volume_neg,1)==volume_neg.shape[1]
+        # bin_neg = volume_neg<1
+        # bin_neg = np.sum(volume_neg,1)>0
+
+        print 'num_neg', np.sum(bin_neg)
+
+        rel_pos = volume[bin_pos,:]
+        print rel_pos.shape
+        print rel_pos[0]
+        print volume_pos[bin_pos,:][0]
+
+
+        rel_neg = volume[bin_neg,:]
+        print rel_neg.shape
+        print rel_neg[0]
+        print volume_neg[bin_neg,:][0]
+        
+        raw_input()
+
+
+        volume_sum = np.sum(volume,1)
+        to_keep= volume_sum>6
+        print to_keep.shape, np.sum(to_keep)
+
+        
+
+        total_reasonable+=np.sum(to_keep)
+
+        im_files = np.array(im_files)
+        im_files_to_keep = im_files[to_keep]
+        volume_to_keep = volume[to_keep,:]
+
+        out_file_sub = os.path.join(out_dir_annos,sub+'.txt')
+        lines = []
+        for idx in range(im_files_to_keep.shape[0]):
+            im_file = im_files_to_keep[idx]
+            volume_file = volume_to_keep[idx,:] 
+            anno = [im_file]+[str(int(val)) for val in volume_file]
+            anno = ' '.join(anno)
+            lines.append(anno)
+        print len(lines),out_file_sub
+        util.writeFile(out_file_sub,lines)
+
+        
+
+    print total_reasonable
+
+
+
+def make_disfa_8au_anno_all():
+
+    dir_meta = '../data/disfa'
+    dir_im_meta = os.path.join(dir_meta,'Videos_LeftCamera_frames_200')
+    pre_im_str = 'LeftVideo'
+    post_im_str = '_comp'
+
+    dir_anno_meta = os.path.join(dir_meta,'ActionUnit_Labels')
+    out_dir_volume = os.path.join(dir_meta,'anno_volume')
+    out_dir_annos = os.path.join(dir_meta,'sub_annos_8_au_all_method')
+    util.mkdir(out_dir_annos)
+
+    list_subs = glob.glob(os.path.join(dir_anno_meta,'*'))
+    list_subs = [os.path.split(sub)[1] for sub in list_subs]    
+
+    aus_keep = [1,2,4,6,9,12,25,26]
+    aus_keep.sort()
+
+    list_aus = [1,12,15,17,2,20,25,26,4,5,6,9]
+    list_aus.sort()
+    idx_keep = [1 if au in aus_keep else 0 for au in list_aus ]
+    
+    total_reasonable = 0
+
+
+    for sub in list_subs:
+        im_dir = os.path.join(dir_im_meta,pre_im_str+sub+post_im_str)
+        im_files = glob.glob(os.path.join(im_dir,'*.jpg'))
+        im_files.sort()
+
+
+        volume_file = os.path.join(out_dir_volume,sub+'.npy')
+        volume = np.load(volume_file)
+
+        
+        assert volume.shape[0]==len(im_files)
+
+        volume_to_keep = volume[:,np.array(idx_keep)>0]
+        print volume_to_keep.shape,np.sum(np.sum(volume_to_keep,1)>0)
+        raw_input()
+        # volume_sum = np.sum(volume,1)
+        # to_keep= volume_sum>6
+        # print to_keep.shape, np.sum(to_keep)
+
+        
+
+        total_reasonable+=volume_to_keep.shape[0]
+
+        # np.sum(to_keep)
+
+        im_files_to_keep = np.array(im_files)
+        # im_files_to_keep = im_files[to_keep]
+        # volume_to_keep = volume[to_keep,:]
+
+        out_file_sub = os.path.join(out_dir_annos,sub+'.txt')
+        lines = []
+        for idx in range(im_files_to_keep.shape[0]):
+            im_file = im_files_to_keep[idx]
+            volume_file = volume_to_keep[idx,:] 
+            anno = [im_file]+[str(int(val)) for val in volume_file]
+            anno = ' '.join(anno)
+            lines.append(anno)
+        print len(lines),out_file_sub
+        util.writeFile(out_file_sub,lines)
+
+        
+
+    print total_reasonable
+        
+
+
 
 
 def make_disfa_10_16_anno():
@@ -489,39 +780,6 @@ def make_disfa_10_16_anno():
 
     print total_reasonable
 
-# def save_mean_std_vals(dir_files,im_resize = None):
-#     # im_resize = [96,96]
-
-#     for split_num in range(0,10):
-#         print split_num
-#         train_file = os.path.join(dir_files,'train_'+str(split_num)+'.txt')
-#         out_file = os.path.join(dir_files,'train_'+str(split_num)+'_mean_std_val_0_1.npy')
-
-#         lines = util.readLinesFromFile(train_file)
-#         im_all = []
-#         for idx_line,line in enumerate(lines[:10]):
-#             if idx_line%1000==0:
-#                 print idx_line
-#             im = line.split(' ')[0]
-#             if im_resize is None:
-#                 im = scipy.misc.imread(im).astype(np.float32)
-#             else:
-#                 im = scipy.misc.imresize(scipy.misc.imread(im),(im_resize[0],im_resize[1])).astype(np.float32)
-#             im = im/255.
-#             im = im[:,:,:,np.newaxis]
-#             im_all.append(im)
-
-#         # print len(im_all)
-#         print im_all[0].shape
-#         im_all = np.concatenate(im_all,3)
-        
-#         print im_all.shape, np.min(im_all),np.max(im_all)
-#         mean_val = np.mean(im_all)
-#         std_val = np.std(im_all)
-#         print mean_val,std_val
-#         mean_std = np.array([mean_val,std_val])
-#         print mean_std.shape, mean_std
-#         np.save(out_file,mean_std)
 
 def save_train_test_files():
     dir_meta = '../data/disfa'
@@ -531,47 +789,83 @@ def save_train_test_files():
 
     dir_anno_meta = os.path.join(dir_meta,'ActionUnit_Labels')
     out_dir_volume = os.path.join(dir_meta,'anno_volume')
-    out_dir_annos = os.path.join(dir_meta,'sub_annos_10_6_method')
-    out_dir_train_test = os.path.join(dir_meta,'train_test_10_6_method')
-    out_dir_folds =  os.path.join(dir_meta,'folds_10')
+
+    # out_dir_annos = os.path.join(dir_meta,'sub_annos_10_6_method')
+    # out_dir_train_test = os.path.join(dir_meta,'train_test_10_6_method')
+    # num_folds = 10
+    # out_dir_folds =  os.path.join(dir_meta,'folds_10')
+
+    out_dir_annos = os.path.join(dir_meta,'sub_annos_8_au_all_method')
+    out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_110_gray_align')
+    num_folds = 3
+    out_dir_folds =  os.path.join(dir_meta,'folds_3')
+    new_dir_im_meta = os.path.join(dir_meta,'preprocess_im_110_gray_align')
+    
     util.mkdir(out_dir_train_test)
 
-    num_folds = 10
-    # for fold_curr in range(num_folds):
-    #     fold_curr = str(fold_curr)
-    #     print fold_curr
-    #     train_subs = util.readLinesFromFile(os.path.join(out_dir_folds,'train_'+fold_curr+'.txt'))
-    #     test_subs = util.readLinesFromFile(os.path.join(out_dir_folds,'test_'+fold_curr+'.txt'))
-    #     assert len(train_subs)+len(test_subs)==27
+    
+    for fold_curr in range(num_folds):
+        fold_curr = str(fold_curr)
+        print fold_curr
+        train_subs = util.readLinesFromFile(os.path.join(out_dir_folds,'train_'+fold_curr+'.txt'))
+        test_subs = util.readLinesFromFile(os.path.join(out_dir_folds,'test_'+fold_curr+'.txt'))
+        assert len(train_subs)+len(test_subs)==27
 
-    #     train_sub_files = [os.path.join(out_dir_annos,sub_curr+'.txt') for sub_curr in train_subs]
-    #     test_sub_files = [os.path.join(out_dir_annos,sub_curr+'.txt') for sub_curr in test_subs]
+        train_sub_files = [os.path.join(out_dir_annos,sub_curr+'.txt') for sub_curr in train_subs]
+        test_sub_files = [os.path.join(out_dir_annos,sub_curr+'.txt') for sub_curr in test_subs]
         
-    #     out_file_train = os.path.join(out_dir_train_test,'train_'+str(fold_curr)+'.txt')
-    #     train_anno = []
-    #     for train_sub_file in train_sub_files:
-    #         train_anno = train_anno+util.readLinesFromFile(train_sub_file)
-    #     print len(train_anno)
-    #     random.shuffle(train_anno)
-    #     util.writeFile(out_file_train,train_anno)
+        out_file_train = os.path.join(out_dir_train_test,'train_'+str(fold_curr)+'.txt')
+        train_anno = []
+        for train_sub_file in train_sub_files:
+            train_anno = train_anno+util.readLinesFromFile(train_sub_file)
+        print len(train_anno)
 
-    #     out_file_test = os.path.join(out_dir_train_test,'test_'+str(fold_curr)+'.txt')
-    #     test_anno = []
-    #     for test_sub_file in test_sub_files:
-    #         test_anno = test_anno+util.readLinesFromFile(test_sub_file)
-    #     print len(test_anno)
-    #     random.shuffle(test_anno)
-    #     util.writeFile(out_file_test,test_anno)
+        train_anno = [line.replace(dir_im_meta,new_dir_im_meta) for line in train_anno]
+        for line_curr in train_anno:
+            im_curr = line_curr.split(' ')[0]
+            assert os.path.exists(im_curr)
 
-    mean_std = np.array([[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]])
-    print mean_std.shape
-    print mean_std
-    np.save(os.path.join(out_dir_train_test,'mean_std.npy'),mean_std)
+        
+
+
+
+        print train_anno[0]
+        # raw_input()
+        random.shuffle(train_anno)
+        util.writeFile(out_file_train,train_anno)
+
+        out_file_test = os.path.join(out_dir_train_test,'test_'+str(fold_curr)+'.txt')
+        test_anno = []
+        for test_sub_file in test_sub_files:
+            test_anno = test_anno+util.readLinesFromFile(test_sub_file)
+        print len(test_anno)
+
+        test_anno = [line.replace(dir_im_meta,new_dir_im_meta) for line in test_anno]
+        for line_curr in test_anno:
+            im_curr = line_curr.split(' ')[0]
+            assert os.path.exists(im_curr)
+
+        random.shuffle(test_anno)
+        util.writeFile(out_file_test,test_anno)
+
+    # mean_std = np.array([[0.485, 0.456, 0.406],[0.229, 0.224, 0.225]])
+    # print mean_std.shape
+    # print mean_std
+    # np.save(os.path.join(out_dir_train_test,'mean_std.npy'),mean_std)
 
 
 
 def main():
+
+    # make_disfa_8au_anno_all()
+    # make_folds()
+
+    # make_disfa_800_1600_anno()
+
+    # script_save_mean_std_files()
+    # script_change_train_test()
     save_train_test_files()
+    # script_make_im_gray()
     
     
 

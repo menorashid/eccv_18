@@ -141,6 +141,10 @@ def get_class_weights_au(train_files):
     for line_curr in train_files:
         arr.append([int(val) for val in line_curr.split(' ')[1:]] )
     arr = np.array(arr)
+    arr[arr>0]=1
+    
+    # print np.min(arr),np.max(arr)
+    # raw_input()
     counts = np.sum(arr,0)
     print counts
     counts = counts/float(np.sum(counts))

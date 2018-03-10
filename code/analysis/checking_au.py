@@ -12,7 +12,7 @@ str_replace = ['..',os.path.join(dir_server,'maheen_data/eccv_18')]
 click_str = 'http://vision3.idav.ucdavis.edu:1000'
 
 
-def compile_and_print_stats(test_dirs,out_file):
+def compile_and_print_stats(test_dirs,out_file,type_metric=None):
 	label_pre = 'labels_all_'
 	pred_pre = 'predictions_'
 	labels_all = []
@@ -39,7 +39,9 @@ def compile_and_print_stats(test_dirs,out_file):
 	print 'labels_all.shape', labels_all.shape
 	print 'pred_all.shape', pred_all.shape
 
-	f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
+	f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = type_metric)
+	print f1_per_class
+	raw_input()
 	f1_avg= np.mean(f1_per_class)
 
 	print 'f1_per_class' 
@@ -78,24 +80,36 @@ def compile_and_print_stats(test_dirs,out_file):
 
 
 def main():
-	dir_meta = '../experiments/khorrami_capsule_7_3_color3'
-	dir_exp_pre = 'bp4d_110_'
-	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_50_step_50_0.1_0.001_0.001_0.001_lossweights_1.0_1.0'
-	models_test = [5]
+	# dir_meta = '../experiments/khorrami_capsule_7_3_color3'
+	# dir_exp_pre = 'bp4d_110_'
+	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_50_step_50_0.1_0.001_0.001_0.001_lossweights_1.0_1.0'
+	# models_test = [5]
+
+
+	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
+	models_test = [9]
+
+	
+	dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
+	models_test = [2]	
+	type_metric = 'samples'
 	
 	folds = [0,1,2]
 
 		
 	for model_test in models_test:
-		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(models_test)+'.txt')
+		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(models_test)+'_'+type_metric+'.txt')
 
 		test_dirs = []
 		for fold_num in folds:
 			test_dir = os.path.join(dir_meta,dir_exp_pre+str(fold_num)+dir_exp_post,'results_model_'+str(model_test))
 			test_dirs.append(test_dir)
-
+			print test_dir
 		print 'fold_num,model_test', folds,model_test
-		compile_and_print_stats(test_dirs,out_file)
+		compile_and_print_stats(test_dirs,out_file,type_metric = type_metric)
 		print '___'
 
 

@@ -226,6 +226,80 @@ class Bp4d_Dataset(generic_dataset):
         return sample
 
 
+
+class Bp4d_Dataset_Mean_Std_Im(generic_dataset):
+
+    def __init__(self, text_file, mean_file, std_file, resize = None, binarize = False, transform=None):
+        super(Bp4d_Dataset_Mean_Std_Im, self).__init__(text_file,transform)
+        self.mean = scipy.misc.imread(mean_file)
+        # .astype(np.float32)
+        self.std = scipy.misc.imread(std_file)
+        # .astype(np.float32)
+        self.std[self.std==0]=1.
+        self.resize = resize
+        self.binarize = binarize
+
+        if self.resize is not None:
+            self.mean = scipy.misc.imresize(self.mean,(self.resize,self.resize))
+            # .astype(np.float32)
+            self.std = scipy.misc.imresize(self.std,(self.resize,self.resize))
+            # .astype(np.float32)
+        # print np.min(self.mean),np.max(self.mean)
+        # print np.min(self.std),np.max(self.std)
+
+        self.mean = self.mean.astype(np.float32)
+        self.std = self.std.astype(np.float32)
+
+        # print np.min(self.mean),np.max(self.mean)
+        # print np.min(self.std),np.max(self.std)
+
+        # raw_input()
+
+
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        info = train_file_curr.split(' ')
+        train_file_curr = info[0]
+        labels = [int(val) for val in info[1:]]
+        labels = np.array(labels)
+
+        # .astype('float')
+        if self.binarize :
+            # print labels
+            labels[labels>0]=1
+            labels[labels<1]=0
+        # labels[labels<0.5]=0.1
+        image = scipy.misc.imread(train_file_curr)
+        # print image.shape
+
+        if self.resize is not None:
+            if image.shape[0]!= self.resize or image.shape[1]!= self.resize:
+                image = scipy.misc.imresize(image,(self.resize,self.resize))
+        image = image.astype(np.float32)          
+        # print image.shape
+        # print self.mean.shape
+        # print self.std.shape
+
+        image = image-self.mean
+        # print np.min(image),np.max(image),np.min(self.mean),np.max(self.mean)
+        image = image/self.std
+        # print np.min(image),np.max(image),np.min(self.std),np.max(self.std)
+        image = image[:,:,np.newaxis]
+        
+        # print np.min(image), np.max(image)        
+        # print labels
+        # print type(labels[0])
+
+        # raw_input()
+        
+        sample = {'image': image, 'label': labels}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
+
+
+
 class Disfa_10_6_Dataset(generic_dataset):
     def __init__(self, text_file, bgr = False, transform=None):
         # super(Disfa_10_6_Dataset, self).__init__(text_file,transform)

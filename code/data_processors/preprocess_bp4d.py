@@ -7,9 +7,11 @@ import glob
 import scipy.misc
 import numpy as np
 import random
-
+# import face_alignment
+import skimage.transform
 import multiprocessing
 import dlib
+import cv2
 
 def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
     if idx_file_curr%100==0:
@@ -438,14 +440,15 @@ def save_color_as_gray((in_file,out_file,im_size,idx_file_curr)):
 
 def script_make_im_gray():
     dir_meta = '../data/bp4d'
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
-    out_dir_files_new = os.path.join(dir_meta, 'train_test_files_96_gray')
-    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_96_gray')
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
+    out_dir_files_new = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
     util.mkdir(out_dir_files_new)
 
     num_folds = 3
-    im_size = [96,96]
+    im_size = None
+    # [96,96]
     all_im = []
     for fold_curr in range(num_folds):
         train_file = os.path.join(out_dir_files,'train_'+str(fold_curr)+'.txt')
@@ -494,6 +497,12 @@ def make_train_test_files():
     out_dir_im = os.path.join(dir_meta, 'preprocess_im_96_gray')
     out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
 
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+
     replace_str = '../data/bp4d/BP4D/BP4D-training'
     util.mkdir(out_dir_files)
     num_folds = 3
@@ -523,13 +532,13 @@ def save_mean_std_im(im_rel_all, out_file_mean,out_file_std):
 
     std_val = np.std(im_all,axis=2)
     print std_val.shape,np.min(std_val),np.max(std_val)
-    scipy.misc.imsave(out_file_mean,mean_val)
-    scipy.misc.imsave(out_file_std,std_val)
+    cv2.imwrite(out_file_mean,mean_val)
+    cv2.imwrite(out_file_std,std_val)
 
 
 def make_select_mean_files(dir_files,num_folds):
 
-    num_per_video = 20
+    num_per_video = 200
 
     for fold_num in range(num_folds):
         print fold_num
@@ -556,27 +565,162 @@ def make_select_mean_files(dir_files,num_folds):
         save_mean_std_im(im_rel_all, out_file_mean,out_file_std)
 
 
+def save_kp_for_alignment():
+    dir_meta = '../data/bp4d'
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
+    out_dir_kp = os.path.join(dir_meta,'preprocess_im_110_color_kp')
+    util.mkdir(out_dir_kp)
+
+    all_im = []
+    for fold_num in range(3):
+        for file_pre in ['train','test']:
+            file_curr = os.path.join(out_dir_files,file_pre+'_'+str(fold_num)+'.txt')
+            im_list_curr = [line.split(' ')[0] for line in util.readLinesFromFile(file_curr)]
+            all_im.extend(im_list_curr)
+    all_im = list(set(all_im))
+    print len(all_im)
+
+    batch_size = 128
+    batches = [all_im[x:x+batch_size] for x in range(0, len(all_im), batch_size)]
+    total = 0
+
+    for b in batches:
+        total +=len(b)
+
+    assert total==len(all_im)
+
+    fa=face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, enable_cuda=True, flip_input=False)
+    for idx_im_list, im_list in enumerate(batches):
+        print 'batch',idx_im_list,'of',len(batches)
+        preds = fa.get_landmarks_simple(im_list)
+        # print preds.shape,len(im_list)
+        for idx_im_curr,im_curr in enumerate(im_list):
+            pred_curr = preds[idx_im_curr]
+            # print pred_curr.shape
+            out_file_pred = im_curr.replace(out_dir_im,out_dir_kp).replace('.jpg','.npy')
+            # print out_file_pred,im_curr
+            dir_curr = os.path.split(out_file_pred)[0]
+            util.makedirs(dir_curr)
+            # raw_input()
+            np.save(out_file_pred,pred_curr)
+
+def save_registered_face((avg_pts_file,mat_file,im_file,out_file,idx)):
+    if not idx%100:
+        print idx
+
+    avg_pts = np.load(avg_pts_file)
+
+    pts = np.load(mat_file)
+    
+    im = scipy.misc.imread(im_file)
+    
+    tform = skimage.transform.estimate_transform('similarity', pts, avg_pts)
+    im_new = skimage.transform.warp(im, tform.inverse, output_shape=(im.shape[0],im.shape[1]), order=1, mode='edge')
+
+    
+    scipy.misc.imsave(out_file,im_new)
+
+def save_avg_kp_for_alignment():
+    import matplotlib.pyplot as plt
+
+    dir_meta = '../data/bp4d'
+    kp_dir = os.path.join(dir_meta,'preprocess_im_110_color_kp')
+    out_file_avg_kp = os.path.join(kp_dir,'avg_kp.npy')
 
 
+    list_of_nps = glob.glob(os.path.join(kp_dir,'*','*','*.npy'))
+    random.shuffle(list_of_nps)
+
+    print len(list_of_nps)
+    # list_of_nps = list_of_nps[:10]
+    # print len(list_of_nps)s
+
+    for idx_np_curr,np_curr in enumerate(list_of_nps):
+        if idx_np_curr==0:
+            kp = np.load(np_curr).astype(np.float32)
+        else:
+            kp = kp+np.load(np_curr).astype(np.float32)
+
+    avg_kp = kp/len(list_of_nps)
+    print np.min(avg_kp),np.max(avg_kp)
+
+    np.save(out_file_avg_kp,avg_kp)
+
+    plt.figure()
+    plt.plot(avg_kp[:,0],avg_kp[:,1])
+    plt.savefig(os.path.join(kp_dir,'avg_kp.jpg'))
+    plt.close()
 
 
+def script_save_align_im():
+    dir_meta = '../data/bp4d'
+    kp_dir = os.path.join(dir_meta,'preprocess_im_110_color_kp')
+    im_dir_in = os.path.join(dir_meta,'preprocess_im_110_color')
+    im_dir_out = os.path.join(dir_meta,'preprocess_im_110_color_align')
 
 
-def main():
+    # out_dir = '../scratch/check_align_bp4d'
+    # util.mkdir(out_dir)
 
-    import face_alignment
-    from skimage import io
+    list_of_nps = glob.glob(os.path.join(kp_dir,'*','*','*.npy'))
+    # random.shuffle(list_of_nps)
+    # np_curr = list_of_nps[0]
+    avg_pts_file= os.path.join(kp_dir,'avg_kp.npy')
 
-    fa = face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, enable_cuda=True, flip_input=False)
-    print fa
+    args = []
+    for idx_np_curr,np_curr in enumerate(list_of_nps):
+        im_curr = np_curr.replace(kp_dir,im_dir_in).replace('.npy','.jpg')
+        assert os.path.exists(im_curr)
+        out_file = im_curr.replace(im_dir_in,im_dir_out)
+        if os.path.exists(out_file):
+            continue
+        out_dir_curr = os.path.split(out_file)[0]
+        util.makedirs(out_dir_curr)
+
+        args.append((avg_pts_file,np_curr,im_curr,out_file,idx_np_curr))
+
+    print len(args)
+    # for arg in args:
+    #     print arg
+    #     save_registered_face(arg)
+        
+
+    # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    # pool.map(save_registered_face, args)
+
+
+def rough_work():
+
+
 
     # input = io.imread('../data/bp4d/BP4D/BP4D-training/F001/T1/2440.jpg')
-    dir_im = '../data/bp4d/BP4D/BP4D-training/F001/T1'
-    preds = fa.process_folder(dir_im, all_faces = False)
+    dir_im = '../data/bp4d/preprocess_im_110_color/F001/T1'
+    im_list = glob.glob(os.path.join(dir_im,'*.jpg'))
+    # print im_list
+    im_list = im_list[:10]
 
-    print preds
 
-    return
+
+    preds = fa.get_landmarks_simple(im_list)
+
+    out_dir_check = os.path.join('../scratch/check_kp_fan')
+    util.mkdir(out_dir_check)
+
+    for idx_im_curr, im_curr in enumerate(im_list):
+        im_curr =scipy.misc.imread(im_curr)
+        pts_rel = preds[idx_im_curr]
+        for pt_curr in pts_rel:
+            cv2.circle(im_curr, (int(pt_curr[0]),int(pt_curr[1])), 2, (255,255,255),-1)
+        out_file_curr = os.path.join(out_dir_check,str(idx_im_curr)+'.jpg')
+        scipy.misc.imsave(out_file_curr,im_curr)
+
+    visualize.writeHTMLForFolder(out_dir_check)
+
+def main():
+    # make_train_test_files()
+    # script_save_align_im()
+
     # script_make_im_gray()
     # test_face_detector()
 
@@ -584,7 +728,7 @@ def main():
     # make_train_test_files()
 
     dir_meta = '../data/bp4d'
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
     make_select_mean_files(out_dir_files,3)
 
 
