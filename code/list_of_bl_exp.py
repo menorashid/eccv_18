@@ -9,11 +9,15 @@ import dataset
 import numpy as np
 
 def khorrami_bl_exp():
-    for split_num in range(1,10):
+    for split_num in [0,1,3,4,5,6,7,8]:
+    # range(1,10):
         out_dir_meta = '../experiments/khorrami_ck_96_caps_bl/'
+        # num_epochs = 300
         num_epochs = 300
         epoch_start = 0
-        dec_after = ['exp',0.96,100,1e-6]
+        # dec_after = ['exp',0.96,350,1e-6]
+        dec_after = ['exp',0.96,350,1e-6]
+        # dec_after = ['step',num_epochs,0.1]
         lr = [0.001,0.001]
         
         im_size = 96
@@ -26,15 +30,20 @@ def khorrami_bl_exp():
         # model_file = os.path.join(out_dir_train,'model_299.pt')
         model_file=None    
 
-        strs_append = '_'.join([str(val) for val in [model_name,num_epochs]+dec_after+lr])
+        strs_append = '_'.join([str(val) for val in ['train_test_files_non_peak_one_third',model_name,num_epochs]+dec_after+lr])
         out_dir_train = os.path.join(out_dir_meta,'ck_'+str(split_num)+'_'+strs_append)
         print out_dir_train
 
-
-        train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
+        train_file = '../data/ck_96/train_test_files_non_peak_one_third/train_'+str(split_num)+'.txt'
         test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
-        mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
-        std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
+        mean_file = '../data/ck_96/train_test_files_non_peak_one_third/train_'+str(split_num)+'_mean.png'
+        std_file = '../data/ck_96/train_test_files_non_peak_one_third/train_'+str(split_num)+'_std.png'
+        
+
+        # train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
+        # test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
+        # mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
+        # std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
         
         mean_im = scipy.misc.imread(mean_file).astype(np.float32)
         std_im = scipy.misc.imread(std_file).astype(np.float32)

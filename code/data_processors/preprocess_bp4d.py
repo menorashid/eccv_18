@@ -138,7 +138,7 @@ def saveCroppedFace_NEW((in_file, out_file, im_size, savegray, idx_file_curr)):
     return size_crop
     
 
-def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr)):
+def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr,save_all)):
     # if idx_file_curr%100==0:
     #     print idx_file_curr
 
@@ -146,7 +146,7 @@ def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr)):
     face_detector = dlib.cnn_face_detection_model_v1(classifier_path)
 
     for idx_file_curr,(in_file,out_file) in enumerate(file_pairs):
-        if idx_file_curr%100==0:
+        if idx_file_curr%10==0:
             print idx_file_curr
 
         im = scipy.misc.imread(in_file)
@@ -164,25 +164,39 @@ def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr)):
             sizes.append((crop_box[1]-crop_box[0])*(crop_box[3]-crop_box[2]))
             boxes.append(crop_box)
 
-        best_box = boxes[np.argmax(sizes)]
-        size_crop = np.max(sizes)
+        # print len(boxes)
+        if save_all:
+            lefts = [box[2] for box in boxes]
+            idx_sort = np.argsort(lefts)
+            boxes = [boxes[idx_curr] for idx_curr in idx_sort]
+            out_files = [out_file[:out_file.rindex('.')]+'_'+str(idx)+out_file[out_file.rindex('.'):] for idx in range(len(boxes))]
+        else:
+            out_files = [out_file]
+            boxes = [boxes[np.argmax(sizes)]]
 
-        size_r = best_box[1]-best_box[0]
-        size_c = best_box[3]-best_box[2]
-        pad = [size_r//4,size_c//4]
-        best_box = [max(0,best_box[0]-pad[0]),
-                    min(im.shape[0],best_box[1]+pad[0]),
-                    max(0,best_box[2]-pad[1]),
-                    min(im.shape[1],best_box[3]+pad[1])]
-        
-        im_crop = im[best_box[0]:best_box[1],best_box[2]:best_box[3]]
-        
+        for best_box,out_file in zip(boxes,out_files):  
+            # print best_box, out_file
 
-        if im_size is not None:
-            roi=cv2.resize(im_crop,tuple(im_size));
-        scipy.misc.imsave(out_file,roi)
+            # best_box = boxes[np.argmax(sizes)]
+            # size_crop = np.max(sizes)
 
-        # return size_crop
+            size_r = best_box[1]-best_box[0]
+            size_c = best_box[3]-best_box[2]
+            pad = [size_r//4,size_c//4]
+            best_box = [max(0,best_box[0]-pad[0]),
+                        min(im.shape[0],best_box[1]+pad[0]),
+                        max(0,best_box[2]-pad[1]),
+                        min(im.shape[1],best_box[3]+pad[1])]
+            
+            im_crop = im[best_box[0]:best_box[1],best_box[2]:best_box[3]]
+            
+            if savegray:
+                im_crop  =  cv2.cvtColor(im_crop, cv2.COLOR_RGB2GRAY)
+
+            if im_size is not None:
+                roi=cv2.resize(im_crop,tuple(im_size));
+            scipy.misc.imsave(out_file,roi)
+
 
 
 def script_save_bbox():
@@ -570,7 +584,7 @@ def make_train_test_files():
 
     # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
     # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
-    
+
     out_dir_im = os.path.join(dir_meta, 'preprocess_im_256_color_align')
     out_dir_files = os.path.join(dir_meta, 'train_test_files_256_color_align')
 

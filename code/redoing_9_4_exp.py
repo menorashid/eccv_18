@@ -13,20 +13,31 @@ from helpers import util,visualize,augmenters
 
 
 
-def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, oulu = False, meta_data_dir = None,loss_weights = None):
+def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, oulu = False, meta_data_dir = None,loss_weights = None, exp = False, non_peak = False):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
     num_epochs = epoch_stuff[1]
     epoch_start = 0
+    if exp:
+        dec_after = ['exp',0.96,epoch_stuff[0],1e-6]
     # dec_after = ['exp',0.96,epoch_stuff[0],1e-6]
-    dec_after = ['step',epoch_stuff[0],0.1]
+    else:
+        dec_after = ['step',epoch_stuff[0],0.1]
 
     lr = lr
     im_resize = 110
     im_size = 96
-    save_after = 100
-    type_data = 'train_test_files'; n_classes = 8;
+    save_after = 50
+    if non_peak:
+        type_data = 'train_test_files_non_peak_one_third'; n_classes = 8;
+        train_pre = os.path.join('../data/ck_96',type_data)
+        test_pre =  os.path.join('../data/ck_96','train_test_files')
+    else:
+        type_data = 'train_test_files'; n_classes = 8;
+        train_pre = os.path.join('../data/ck_96',type_data)
+        test_pre =  os.path.join('../data/ck_96',type_data)
+
     if oulu:
         type_data = 'three_im_no_neutral_just_strong_False'; n_classes = 6;
     criterion = 'margin'
@@ -41,10 +52,11 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     if loss_weights is not None:
         strs_append_list = strs_append_list     +['lossweights']+loss_weights
     strs_append = '_'+'_'.join([str(val) for val in strs_append_list])
+    
     if oulu:
         pre_pend = 'oulu_96_'+meta_data_dir+'_'
     else:
-        pre_pend = 'ck_96_'
+        pre_pend = 'ck_96_'+type_data+'_'
     
     lr_p=lr[:]
     for split_num in folds:
@@ -74,10 +86,16 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
             # continue
 
         if not oulu:
-            train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
-            test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
-            mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
-            std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
+            # train_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'.txt'
+            # test_file = '../data/ck_96/train_test_files/test_'+str(split_num)+'.txt'
+            # mean_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_mean.png'
+            # std_file = '../data/ck_96/train_test_files/train_'+str(split_num)+'_std.png'
+
+            train_file = os.path.join(train_pre,'train_'+str(split_num)+'.txt')
+            test_file = os.path.join(test_pre,'test_'+str(split_num)+'.txt')
+            mean_file = os.path.join(train_pre,'train_'+str(split_num)+'_mean.png')
+            std_file = os.path.join(train_pre,'train_'+str(split_num)+'_std.png')
+
         else:
             train_file = os.path.join('../data/Oulu_CASIA',meta_data_dir, type_data, 'train_'+str(split_num)+'.txt')
             test_file = os.path.join('../data/Oulu_CASIA',meta_data_dir, type_data, 'test_'+str(split_num)+'.txt')
@@ -93,7 +111,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         # print np.min(std_im),np.max(std_im)
         # raw_input()
 
-        list_of_to_dos = ['flip','rotate','scale_translate','pixel_augment']
+        list_of_to_dos = ['flip','rotate','scale_translate', 'pixel_augment']
         
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
@@ -108,6 +126,13 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
 
         # train_data = dataset.CK_96_Dataset_Just_Mean(train_file, mean_file, data_transforms['train'])
         # test_data = dataset.CK_96_Dataset_Just_Mean(test_file, mean_file, data_transforms['val'])
+
+        print train_file
+        print test_file
+        print std_file
+        print mean_file
+        # raw_input()
+
         train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
         train_data_no_t = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['val'])
         test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
@@ -171,7 +196,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
             
         if reconstruct:
             train_model_recon(**train_params)
-            test_model_recon(**test_params)
+            # test_model_recon(**test_params)
             # test_model_recon(**test_params_train)
 
         else:
@@ -322,18 +347,20 @@ def train_khorrami_aug_oulu(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_cap
 
 def main():
     
-    folds = [9,2]
-    # range(10)
+    folds = [0,1,3,4,5,6,7,8]
     
-    epoch_stuff = [600,800]
+    epoch_stuff = [350,300]
     # [600,600]
     lr = [0.001,0.001,0.001]
     # res = True
     route_iter = 3
 
+    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = True )
+
+
+
     # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True)
 
-    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=True, class_weights = True, reconstruct = True)
 
     # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigrecon', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True)
 

@@ -414,14 +414,45 @@ def write_non_peak_files():
             print out_file_curr
             util.writeFile(out_file_curr,out_lines)
 
+    save_mean_std_im(out_dir_files)
 
+def save_mean_std_im(dir_files):
+    # im_resize = [96,96]
+
+    for split_num in range(0,10):
+        train_file = os.path.join(dir_files,'train_'+str(split_num)+'.txt')
+        out_file_mean = os.path.join(dir_files,'train_'+str(split_num)+'_mean.png')
+        out_file_std = os.path.join(dir_files,'train_'+str(split_num)+'_std.png')
+
+        lines = util.readLinesFromFile(train_file)
+        im_all = []
+        for line in lines:
+            im = line.split(' ')[0]
+            im = scipy.misc.imread(im).astype(np.float32)
+            # im = im/255.
+            im = im[:,:,np.newaxis]
+            im_all.append(im)
+
+        # print len(im_all)
+        print im_all[0].shape
+        im_all = np.concatenate(im_all,2)
+        
+
+        print im_all.shape, np.min(im_all),np.max(im_all)
+        mean_val = np.mean(im_all,axis=2)
+        print mean_val.shape,np.min(mean_val),np.max(mean_val)
+
+        std_val = np.std(im_all,axis=2)
+        print std_val.shape,np.min(std_val),np.max(std_val)
+        cv2.imwrite(out_file_mean,mean_val)
+        cv2.imwrite(out_file_std,std_val)
 
 
 
 
 
 def main():
-    # write_non_peak_files()
+    write_non_peak_files()
 
     # saveCKresizeImages()
     # get_non_peak_im_list()

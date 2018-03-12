@@ -47,29 +47,29 @@ class Khorrami_Model(nn.Module):
         return x
 
 class Network:
-    def __init__(self,n_classes=8,bn=False):
+    def __init__(self,n_classes=8,bn=False, init=True):
         print 'BN',bn
         model = Khorrami_Model(n_classes,bn)
 
-        
-        for idx_m,m in enumerate(model.modules()):
-            if isinstance(m, nn.Conv2d) or isinstance(m,nn.Linear):
-                # print m,1
+        if init:
+            for idx_m,m in enumerate(model.modules()):
+                if isinstance(m, nn.Conv2d) or isinstance(m,nn.Linear):
+                    # print m,1
 
-                # print m.weight.data.shape, torch.min(m.weight.data), torch.max(m.weight.data)
-                # print m.bias.data.shape, torch.min(m.bias.data), torch.max(m.bias.data)
+                    # print m.weight.data.shape, torch.min(m.weight.data), torch.max(m.weight.data)
+                    # print m.bias.data.shape, torch.min(m.bias.data), torch.max(m.bias.data)
 
-                nn.init.xavier_normal(m.weight.data)
-                nn.init.constant(m.bias.data,0.)
+                    nn.init.xavier_normal(m.weight.data)
+                    nn.init.constant(m.bias.data,0.)
 
-                # print m.weight.data.shape, torch.min(m.weight.data), torch.max(m.weight.data)
-                # print m.bias.data.shape, torch.min(m.bias.data), torch.max(m.bias.data)
+                    # print m.weight.data.shape, torch.min(m.weight.data), torch.max(m.weight.data)
+                    # print m.bias.data.shape, torch.min(m.bias.data), torch.max(m.bias.data)
 
-            elif isinstance(m, nn.BatchNorm2d):
-                # print m,2
-                nn.init.constant(m.weight.data,1.)
-                nn.init.constant(m.bias.data,0.)
-            # print 'break'
+                elif isinstance(m, nn.BatchNorm2d):
+                    # print m,2
+                    nn.init.constant(m.weight.data,1.)
+                    nn.init.constant(m.bias.data,0.)
+                # print 'break'
                 
         self.model = model
         

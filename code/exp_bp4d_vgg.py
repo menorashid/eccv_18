@@ -438,7 +438,7 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            continue 
+            # continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -540,8 +540,8 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
 
         # if reconstruct:
 
-        train_model_recon(**train_params)
-        # test_model_recon(**test_params)
+        # train_model_recon(**train_params)
+        test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -567,28 +567,34 @@ def train_disfa_ft():
     # range(3)
     model_name = 'khorrami_capsule_7_3_gray'
     disfa = True
-    epoch_stuff = [350,5]
+    epoch_stuff = [350,10]
     lr = [0,0.001,0.001]
     route_iter = 3
+
     vgg_base_file = '../experiments/khorrami_capsule_7_3_gray3/bp4d_train_test_files_110_gray_align_0_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0/model_2.pt'
     vgg_base_file_str = 'fold_0_epoch_2_fix_exp_correct_mean'
+
+
+    vgg_base_file = '../experiments/khorrami_capsule_7_3_gray3/bp4d_train_test_files_110_gray_align_0_reconstruct_True_True_cropkhAugNoColor_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None/model_9.pt'
+    vgg_base_file_str = 'fold_0_epoch_9_moreAug_fix_exp_correct_mean'
+
 
     mean_file = '../data/bp4d/train_test_files_110_gray_align/train_0_mean.png'
     std_file =  '../data/bp4d/train_test_files_110_gray_align/train_0_std.png'
 
-    train_gray(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = [1.,1.],exp=True, disfa = disfa, vgg_base_file = vgg_base_file,vgg_base_file_str = vgg_base_file_str, mean_file = mean_file, std_file = std_file)
+    train_gray(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = [1.,1.],exp=True, disfa = disfa, vgg_base_file = vgg_base_file,vgg_base_file_str = vgg_base_file_str, mean_file = mean_file, std_file = std_file,aug_more = True)
 
 
 def main():
     
-    # train_disfa_ft()
-    # return
+    train_disfa_ft()
+    return
 
 
     epoch_stuff = [350,2]
     lr = [0,0.001,0.001]
     route_iter = 3
-    folds = [1]
+    folds = [0,2]
     model_name = 'vgg_capsule_7_3'
     disfa = True
     # align = True
