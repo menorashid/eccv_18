@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import skimage.transform
 import multiprocessing
 import random
-import preprocess_bp4d
+# import preprocess_bp4d
 
 def script_make_im_gray():
     dir_meta = '../data/disfa'
@@ -796,10 +796,15 @@ def save_train_test_files():
     # out_dir_folds =  os.path.join(dir_meta,'folds_10')
 
     out_dir_annos = os.path.join(dir_meta,'sub_annos_8_au_all_method')
-    out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_110_gray_align')
+    # out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_110_gray_align')
+    # num_folds = 3
+    # out_dir_folds =  os.path.join(dir_meta,'folds_3')
+    # new_dir_im_meta = os.path.join(dir_meta,'preprocess_im_110_gray_align')
+
+    out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_256_color_align')
     num_folds = 3
     out_dir_folds =  os.path.join(dir_meta,'folds_3')
-    new_dir_im_meta = os.path.join(dir_meta,'preprocess_im_110_gray_align')
+    new_dir_im_meta = os.path.join(dir_meta,'preprocess_im_256_color_align')
     
     util.mkdir(out_dir_train_test)
 
@@ -854,8 +859,69 @@ def save_train_test_files():
     # np.save(os.path.join(out_dir_train_test,'mean_std.npy'),mean_std)
 
 
+def save_resize_im((in_file,out_file,im_size,idx_file_curr)):
+    if idx_file_curr%1000 ==0:
+        print idx_file_curr
+
+    img = cv2.imread(in_file);
+    # gray  =  cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    # if im_size is not None:
+    img_new = cv2.resize(img,tuple(im_size));
+    cv2.imwrite(out_file,img_new)
+
+
+def script_save_256_im():
+    dir_meta = '../data/disfa'
+    out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_110_gray_align')
+
+    im_size = [256,256]
+    out_dir_im = os.path.join(dir_meta,'preprocess_im_256_color_align')
+
+    num_folds = 3
+    im_files_all = []
+    for fold_curr in range(num_folds):
+        for file_pre in ['train','test']:
+            file_curr = os.path.join(out_dir_train_test,file_pre+'_'+str(fold_curr)+'.txt')
+            print file_curr,len(util.readLinesFromFile(file_curr))
+
+            im_files = [line_curr.split(' ')[0] for line_curr in util.readLinesFromFile(file_curr)]
+            im_files_all.extend(im_files)
+
+    print len(im_files_all),len(list(set(im_files_all)))
+    im_files_all = list(set(im_files_all))
+    str_replace_in_files = [os.path.join(dir_meta,'preprocess_im_110_gray_align'),os.path.join(dir_meta,'Videos_LeftCamera_frames_200')]
+    im_files_all = [file_curr.replace(str_replace_in_files[0],str_replace_in_files[1]) for file_curr in im_files_all]
+
+    str_replace_out_files = [str_replace_in_files[1],out_dir_im]
+    args =[]
+    for idx_file_curr, im_file_curr in enumerate(im_files_all):
+        out_file_curr = im_file_curr.replace(str_replace_out_files[0],str_replace_out_files[1])
+        out_dir_curr = os.path.split(out_file_curr)[0]
+        util.makedirs(out_dir_curr)
+        if os.path.exists(out_file_curr):
+            continue
+        args.append((im_file_curr,out_file_curr,im_size,idx_file_curr))
+
+    print len(im_files_all)
+    print len(args)
+    # for arg in args:
+    #     print arg
+    #     raw_input()
+    #     save_resize_im(arg)
+    #     break
+
+    pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    pool.map(save_resize_im, args)
+
+
+
+
+
 
 def main():
+    save_train_test_files()
+    # script_save_256_im()
+
 
     # make_disfa_8au_anno_all()
     # make_folds()
@@ -864,7 +930,7 @@ def main():
 
     # script_save_mean_std_files()
     # script_change_train_test()
-    save_train_test_files()
+    # save_train_test_files()
     # script_make_im_gray()
     
     

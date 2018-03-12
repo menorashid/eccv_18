@@ -7,11 +7,12 @@ import glob
 import scipy.misc
 import numpy as np
 import random
-# import face_alignment
+import face_alignment
 import skimage.transform
 import multiprocessing
 import dlib
 import cv2
+import shutil
 
 def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
     if idx_file_curr%100==0:
@@ -182,53 +183,119 @@ def saveCroppedFace_NEW_batch((file_pairs, im_size, savegray, idx_file_curr)):
         scipy.misc.imsave(out_file,roi)
 
         # return size_crop
+
+
+def script_save_bbox():
+    dir_meta= '../data/bp4d'
+
+    in_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect')
+
+    out_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect_bbox')
+    util.mkdir(out_dir_meta)
     
+
+    im_list_in = glob.glob(os.path.join(in_dir_meta,'*','*','*.jpg'))
+    print len(im_list_in)
+    
+    
+    savegray = False
+    args = []
+    
+    args = []
+    file_pairs = []
+    for idx_im_in,im_in in enumerate(im_list_in):
+        out_file = im_in.replace(in_dir_meta,out_dir_meta).replace('.jpg','.npy')
+        if os.path.exists(out_file):
+            continue
+        out_dir_curr = os.path.split(out_file)[0]
+        util.makedirs(out_dir_curr)
+        file_pairs.append((im_in,out_file))
+
+    chunk_size = 5
+    chunks = [file_pairs[x:x+chunk_size] for x in range(0, len(file_pairs), chunk_size)]
+    args = [(chunk_curr,idx_im_in) for idx_im_in,chunk_curr in enumerate(chunks)]
+
+    print len(args)
+    # args = args[:1000]
+    for arg in args:
+        print arg
+        size = save_best_bbox_batch(arg)
+        raw_input()
+
+
+    # pool = multiprocessing.Pool(4)
+    # crop_sizes = pool.map(saveCroppedFace_NEW_batch,args)
+    # content = []
+    # out_im_all = [arg_curr[1] for arg_curr in args]
+    # np.savez(os.path.join(dir_meta,'sizes_256.npz'),crop_sizes = np.array(crop_sizes),out_im_all = np.array(out_im_all))
+
+
+def save_best_bbox_batch((file_pairs, idx_file_curr)):
+    # if idx_file_curr%100==0:
+    #     print idx_file_curr
+
+    classifier_path  = '../data/mmod_human_face_detector.dat'
+    face_detector = dlib.cnn_face_detection_model_v1(classifier_path)
+
+    for idx_file_curr,(in_file,out_file) in enumerate(file_pairs):
+        if idx_file_curr%100==0:
+            print idx_file_curr
+
+        im = scipy.misc.imread(in_file)
+        bbox_all = face_detector(im, 1)
+        boxes = []
+        sizes = []
+        if len(bbox_all)<1:
+            print in_file
+            print 'PROBLEM'
+            continue
+
+        for i,bbox in enumerate(bbox_all):
+            bbox = bbox.rect
+            crop_box = [bbox.top(),bbox.bottom(),bbox.left(),bbox.right()]
+            sizes.append((crop_box[1]-crop_box[0])*(crop_box[3]-crop_box[2]))
+            boxes.append(crop_box)
+
+        best_box = boxes[np.argmax(sizes)]
+        np.save(out_file,best_box)
+  
 
 
 
 def script_save_cropped_faces():
     dir_meta= '../data/bp4d'
-    out_dir_meta = os.path.join(dir_meta,'preprocess_im_110_color')
-    util.mkdir(out_dir_meta)
-    # in_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
 
-    in_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect')
+    # in_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(256)+'_color_nodetect')
+    # im_size = [110,110]
+    # out_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(im_size)+'_color')
+    # util.mkdir(out_dir_meta)
+
+    in_dir_meta = os.path.join(dir_meta,'BP4D','BP4D-training')
+    im_size = [256,256]
+    out_dir_meta = os.path.join(dir_meta,'preprocess_im_'+str(im_size[0])+'_color')
+    util.mkdir(out_dir_meta)
+    
 
     im_list_in = glob.glob(os.path.join(in_dir_meta,'*','*','*.jpg'))
     print len(im_list_in)
-    # raw_input()
-
-    im_size = [110,110]
+    
+    
     savegray = False
     args = []
     
-
-    # for idx_im_in,im_in in enumerate(im_list_in):
-    #     out_file = im_in.replace(in_dir_meta,out_dir_meta)
-    #     # if os.path.exists(out_file):
-    #     #     continue
-    #     out_dir_curr = os.path.split(out_file)[0]
-    #     # print out_dir_curr
-    #     util.makedirs(out_dir_curr)
-    #     args.append((im_in,out_file,im_size,savegray,idx_im_in))
-
     args = []
     file_pairs = []
     for idx_im_in,im_in in enumerate(im_list_in):
         out_file = im_in.replace(in_dir_meta,out_dir_meta)
         if os.path.exists(out_file):
             continue
+        out_dir_curr = os.path.split(out_file)[0]
+        util.makedirs(out_dir_curr)
         file_pairs.append((im_in,out_file))
 
     chunk_size = 500
     chunks = [file_pairs[x:x+chunk_size] for x in range(0, len(file_pairs), chunk_size)]
     args = [(chunk_curr,im_size,savegray,idx_im_in) for idx_im_in,chunk_curr in enumerate(chunks)]
-
-
-    #     out_dir_curr = os.path.split(out_file)[0]
-    #     # print out_dir_curr
-    #     util.makedirs(out_dir_curr)
-    #     args.append((im_in,out_file,im_size,savegray,idx_im_in))
 
     print len(args)
     # args = args[:1000]
@@ -256,7 +323,8 @@ def make_au_vec_per_frame(csv_file):
     
     return np.array(arr)
 
-    
+
+
 
 
 def script_save_resize_faces():
@@ -488,20 +556,23 @@ def make_train_test_files():
     out_dir_subs = os.path.join(dir_meta,'subs')
     out_dir_annos = os.path.join(dir_meta, 'anno_text')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_nodetect')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_nodetect')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_96_gray')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_96_gray')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_96_gray')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_256_color_align')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_256_color_align')
 
     replace_str = '../data/bp4d/BP4D/BP4D-training'
     util.mkdir(out_dir_files)
@@ -717,22 +788,160 @@ def rough_work():
 
     visualize.writeHTMLForFolder(out_dir_check)
 
-def main():
-    # make_train_test_files()
-    # script_save_align_im()
 
-    # script_make_im_gray()
-    # test_face_detector()
 
-    # script_save_cropped_faces()
-    # make_train_test_files()
+def save_kp_orginal_im():
 
     dir_meta = '../data/bp4d'
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
-    make_select_mean_files(out_dir_files,3)
+    dir_im_meta = os.path.join(dir_meta, 'BP4D','BP4D-training')
+    dir_kp = os.path.join(dir_meta,'kp_org_im')
+
+    dir_im_meta = os.path.join(dir_meta, 'preprocess_im_256_color_nodetect')
+    dir_kp = os.path.join(dir_meta,'kp_256')    
+    
+    ims_all = glob.glob(os.path.join(dir_im_meta,'*','*','*.jpg'))
+    print len(ims_all)
+
+    # raw_input()
+    # args = []
 
 
-    return
+    args = []
+    for idx_im_curr, im_curr in enumerate(ims_all):
+        # print idx_im_curr
+        
+        out_file_curr = im_curr.replace(dir_im_meta, dir_kp).replace('.jpg','.npy')
+
+        if os.path.exists(out_file_curr):
+            continue
+
+        out_dir_curr = os.path.split(out_file_curr)[0]
+        util.makedirs(out_dir_curr)
+
+        args.append((im_curr,out_file_curr,idx_im_curr)) 
+
+    # args = args[:30000]
+
+
+    chunk_size = len(args)//4
+    args = [args[x:x+chunk_size] for x in range(0, len(args), chunk_size)]
+    print len(args)
+    print len(args[0])
+    print sum([len(val) for val in args])
+
+    pool = multiprocessing.Pool(4)
+    pool.map(save_align_mp,args)
+
+def save_align_mp((args)):
+
+    print len(args)
+
+    fa=face_alignment.FaceAlignment(face_alignment.LandmarksType._2D, enable_cuda=True, flip_input=False)    
+
+    for arg in args:
+        im_curr, out_file_curr, idx_arg = arg
+        if idx_arg%100==0:
+            print idx_arg
+        pred = fa.get_landmarks(im_curr, False)    
+        if pred is not None:
+            np.save(out_file_curr,pred[0])
+
+
+def save_align_im_diff_scale((kp_in_file,im_org_file,avg_pts_file,out_file, out_scale,idx)):
+    if not idx%100:
+        print idx
+
+    kp = np.load(kp_in_file)
+    kp = kp/256.
+
+    im_org = scipy.misc.imread(im_org_file)
+    
+    kp[:,0] = kp[:,0]*im_org.shape[1]
+    kp[:,1] = kp[:,1]*im_org.shape[0]
+
+    
+    avg_pts = np.load(avg_pts_file)
+    
+    tform = skimage.transform.estimate_transform('similarity', kp, avg_pts)
+    im_new = skimage.transform.warp(im_org, tform.inverse, output_shape=(out_scale[0],out_scale[1]), order=1, mode='edge')
+    
+    scipy.misc.imsave(out_file,im_new)
+
+
+def make_avg_kp_256():
+    dir_meta = '../data/bp4d'
+    avg_kp_file = os.path.join(dir_meta, 'preprocess_im_110_color_kp/avg_kp.npy')
+    # params = [192,32,32]
+    # params = [192,32,56]
+    params = [128,64,64]
+    out_file = os.path.join(dir_meta, 'avg_kp_256_'+'_'.join([str(val) for val in params])+'.npy')
+    
+    avg_kp = np.load(avg_kp_file)
+    avg_kp = avg_kp-np.min(avg_kp,0,keepdims=True)
+    print avg_kp.shape,np.min(avg_kp,0),np.max(avg_kp,0)
+    # print np.max(avg_kp,0,keepdims=True)
+    avg_kp = avg_kp/np.max(avg_kp,0,keepdims=True)
+    avg_kp = avg_kp*params[0]
+    print np.min(avg_kp,0),np.max(avg_kp,0)
+    # avg_kp = avg_kp+params[1]
+    avg_kp[:,0] = avg_kp[:,0]+params[1]
+    print np.min(avg_kp,0),np.max(avg_kp,0)
+    avg_kp[:,1] = avg_kp[:,1]+params[2]
+    print np.min(avg_kp,0),np.max(avg_kp,0)
+
+
+    np.save( out_file, avg_kp)
+
+    import matplotlib.pyplot as plt
+    plt.figure()
+    plt.plot(avg_kp[:,0],avg_kp[:,1])
+    plt.savefig('../scratch/kp_avg_sc.jpg')
+    plt.close()
+
+
+def script_save_align_im_diff_scale():
+
+    dir_meta = '../data/bp4d'
+    dir_im_org = os.path.join(dir_meta, 'BP4D','BP4D-training')
+    dir_kp = os.path.join(dir_meta,'kp_256')    
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_256_color_align')
+    np_done = glob.glob(os.path.join(dir_kp,'*','*','*.npy'))
+    
+    print len(np_done)
+    
+
+    params = [192,32,56]
+    avg_kp_file = os.path.join(dir_meta, 'avg_kp_256_'+'_'.join([str(val) for val in params])+'.npy')
+
+    args = []
+    for idx_kp_file, kp_in_file in enumerate(np_done):
+        # kp_in_file = np_done[-1]
+        im_org_file = kp_in_file.replace(dir_kp, dir_im_org).replace('.npy','.jpg')
+        out_file = im_org_file.replace(dir_im_org,out_dir_im)
+        out_scale = [256,256]
+        if os.path.exists(out_file):
+            continue
+        out_dir_curr = os.path.split(out_file)[0]
+        util.makedirs(out_dir_curr)
+        args.append((kp_in_file,im_org_file,avg_kp_file,out_file, out_scale,idx_kp_file))
+
+    print len(args)
+    # return
+    import time
+    for idx_arg,arg in enumerate(args):
+        # print arg
+        # t= time.time()
+        if idx_arg%100==0:
+            print idx_arg
+        save_align_im_diff_scale(arg)
+        # print time.time()-t
+        # break
+
+    # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    # pool.map(save_align_im_diff_scale,args)
+
+
+def sanity_check():
 
     dir_meta = '../data/bp4d'
     out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
@@ -748,12 +957,85 @@ def main():
         print len(train_folds),len(test_folds),len(set(train_folds+test_folds)),len(train_folds)+len(test_folds)
         print np.in1d(test_folds,train_folds)
 
+
+def main():
+    # script_save_align_im_diff_scale()
+    # save_kp_orginal_im()
+
+    # make_avg_kp_256()
+
+
+
+
+
+
+
+    
+    # script_save_bbox()
+    # file_curr = '../data/bp4d/sizes_256.npz'
+
+    # sizes =  np.load(file_curr)
+    # print sizes.keys()
+    # print sizes['crop_sizes'].shape
+
+
+    # save_kp_orginal_im()
+    make_train_test_files()
+    # script_save_align_im()
+
+    # script_make_im_gray()
+    # test_face_detector()
+
+    # script_save_cropped_faces()
+    # make_train_test_files()
+
+    # dir_meta = '../data/bp4d'
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    # make_select_mean_files(out_dir_files,3)
+
+
+    return
+
+
+    # im = '../data/bp4d/preprocess_im_256_color_nodetect/M013/T3/324.jpg'
+    # bbox = '../data/bp4d/preprocess_im_256_color_nodetect_bbox/M013/T3/324.npy'
+
+    # out_file = '../scratch/see_bbox.jpg'
+    # # util.mkdir(out_dir)
+
+    # im = scipy.misc.imread(im)
+    # bbox = np.load(bbox)
+    # cv2.rectangle(im,(bbox[2],bbox[0]),(bbox[3],bbox[1]),(255,255,255),2)
+    # scipy.misc.imsave(out_file,im)
+
     # make_train_test_files()
     # make_train_test_subs()
     # script_save_resize_faces()
 
     # return
-    
+    dir_meta = '../data/bp4d'
+
+    dir_im_meta = os.path.join(dir_meta, 'BP4D','BP4D-training')
+    dir_kp = os.path.join(dir_meta,'kp_256')    
+
+    np_done = glob.glob(os.path.join(dir_kp,'*','*','*.npy'))
+    for np_curr in np_done:
+        im_org = np_curr.replace(dir_kp,dir_im_meta).replace('.npy','.jpg')
+        im_org = scipy.misc.imread(im_org)
+
+        kp = np.load(np_curr)
+        kp = kp/256.
+        kp[:,0] = kp[:,0]*im_org.shape[1]
+        kp[:,1] = kp[:,1]*im_org.shape[0]
+
+        out_file_curr = '../scratch/check_kp_big.jpg'
+        for pt_curr in kp:
+            cv2.circle(im_org, (int(pt_curr[0]),int(pt_curr[1])), 2, (255,255,255),-1)
+        
+        print out_file_curr
+        scipy.misc.imsave(out_file_curr,im_org)
+        
+        break
 
 
 

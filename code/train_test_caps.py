@@ -39,12 +39,13 @@ class Exp_Lr_Scheduler:
 
     def step(self):
         self.step_curr += 1
+        # print 'STEPPING',len(self.optimizer.param_groups)
         for idx_param_group,param_group in enumerate(self.optimizer.param_groups): 
-            # print idx_param_group,param_group['lr'],
+            # print 'outside',idx_param_group,self.init_lr[idx_param_group],param_group['lr']
             if self.init_lr[idx_param_group]!=0:
                 new_lr = self.init_lr[idx_param_group] * self.decay_rate **(self.step_curr/float(self.decay_steps))
                 new_lr = max(new_lr ,self.min_lr)
-                # print new_lr
+                # print idx_param_group,param_group['lr'], new_lr
                 param_group['lr'] = new_lr
             # print param_group['lr']
 
@@ -147,8 +148,8 @@ def train_model(out_dir_train,
             print dec_after
             exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=dec_after[2])
         elif dec_after[0] is 'exp':
-            print dec_after
-            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
+            print 'EXPING',dec_after
+            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),[lr_curr for lr_curr in lr if lr_curr!=0],dec_after[1],dec_after[2],dec_after[3])
         elif dec_after[0] is 'reduce':
             best_val = 0
             exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
@@ -845,7 +846,7 @@ def train_model_recon(out_dir_train,
             exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=dec_after[1], gamma=dec_after[2])
         elif dec_after[0] is 'exp':
             print dec_after
-            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),lr,dec_after[1],dec_after[2],dec_after[3])
+            exp_lr_scheduler = Exp_Lr_Scheduler(optimizer,epoch_start*len(train_dataloader),[lr_curr for lr_curr in lr if lr_curr!=0],dec_after[1],dec_after[2],dec_after[3])
         elif dec_after[0] is 'reduce':
             best_val = 0
             exp_lr_scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, mode=dec_after[1], factor=dec_after[2], patience=dec_after[3],min_lr=dec_after[4])
@@ -1326,7 +1327,7 @@ def test_model_recon(out_dir_train,
                 margin_params  = None,
                 network_params = None,
                 post_pend = '',
-                model_nums = None,barebones = False):
+                model_nums = None,barebones = True):
 
     out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num)+post_pend)
     util.mkdir(out_dir_results)
@@ -1359,6 +1360,7 @@ def test_model_recon(out_dir_train,
 
     print 'RECON',recons
 
+    print 'barebones',barebones
     
     for num_iter,batch in enumerate(test_dataloader):
         predictions = []

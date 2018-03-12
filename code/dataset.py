@@ -185,11 +185,12 @@ class CK_for_VGG(Oulu_Static_Dataset):
 
 
 class Bp4d_Dataset(generic_dataset):
-    def __init__(self, text_file, bgr = False, transform=None):
+    def __init__(self, text_file, bgr = False, binarize = False, transform=None):
         # super(Disfa_10_6_Dataset, self).__init__(text_file,transform)
         self.bgr = bgr
         self.files = util.readLinesFromFile(text_file)
         # [:1280]
+        self.binarize = binarize
         self.transform = transform
         if transform is None:
             self.transform = transforms.ToTensor()
@@ -202,6 +203,12 @@ class Bp4d_Dataset(generic_dataset):
         train_file_curr = info[0]
         labels = [int(val) for val in info[1:]]
         labels = np.array(labels)
+        # print labels
+        
+        if self.binarize :
+            labels[labels>0]=1
+            labels[labels<1]=0
+        
         # .astype('float')
         # labels[labels>0]=1
         # labels[labels<1]=0

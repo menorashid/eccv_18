@@ -13,7 +13,7 @@ import math
 
 class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None, vgg_base_file = None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
@@ -29,15 +29,19 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
             stride=1
 
 
-        # self.vgg_base = torch.load('models/pytorch_vgg_face_just_conv.pth')
-        self.vgg_base = []
-        self.vgg_base.append(nn.Conv2d(1, 64, 5, stride=stride,padding=2))
-        self.vgg_base.append(nn.ReLU(True))
-        self.vgg_base.append(nn.MaxPool2d(2,2))
-        self.vgg_base.append(nn.Conv2d(64, 128, 5, stride=stride,padding=2))
-        self.vgg_base.append(nn.ReLU(True))
-        self.vgg_base.append(nn.MaxPool2d(2,2))
-        self.vgg_base = nn.Sequential(*self.vgg_base)
+        if vgg_base_file is not None:
+            print 'LOADING',vgg_base_file
+            self.vgg_base = torch.load(vgg_base_file).vgg_base
+            # torch.load('models/pytorch_vgg_face_just_conv.pth')
+        else:
+            self.vgg_base = []
+            self.vgg_base.append(nn.Conv2d(1, 64, 5, stride=stride,padding=2))
+            self.vgg_base.append(nn.ReLU(True))
+            self.vgg_base.append(nn.MaxPool2d(2,2))
+            self.vgg_base.append(nn.Conv2d(64, 128, 5, stride=stride,padding=2))
+            self.vgg_base.append(nn.ReLU(True))
+            self.vgg_base.append(nn.MaxPool2d(2,2))
+            self.vgg_base = nn.Sequential(*self.vgg_base)
 
 
         self.features = []
@@ -96,6 +100,29 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
             else:
                 return classes
 
+    def just_reconstruct(self,x,y=None):
+
+
+        if y is None:
+            classes = (x ** 2).sum(dim=-1) ** 0.5
+            y = F.relu(classes - 0.5)
+            y = torch.ceil(y) 
+            # In all batches, get the most active capsule.
+            # _, max_length_indices = classes.max(dim=1)
+            # y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=max_length_indices)
+        # else:
+        #     y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=y)
+        # print x * y[:, :, None]
+        reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
+        reconstructions = reconstructions.view(reconstructions.size(0),1,32,32)
+        reconstructions = self.upsampler(reconstructions)
+
+        # reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
+        # reconstructions = reconstructions.view(reconstructions.size(0),1,int(math.sqrt(reconstructions.size(1))),int(math.sqrt(reconstructions.size(1))))
+
+        return reconstructions
+
+
     def margin_loss(self,  classes,labels):
         if self.reconstruct:
             images = classes[2]
@@ -146,9 +173,9 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None,vgg_base_file= None):
         # print 'BN',bn
-        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights)
+        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights,vgg_base_file)
 
         if init:
             for idx_m,m in enumerate(model.features):

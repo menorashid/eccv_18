@@ -13,15 +13,19 @@ import math
 
 class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None, std_div = None):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
         self.num_classes = n_classes
         self.loss_weights = loss_weights
         # self.temp_loss = nn.MultiLabelMarginLoss()
+
         if class_weights is not None:
             self.class_weights = torch.Tensor(class_weights[np.newaxis,:])
+
+        if std_div is not None:
+            self.std_div = torch.Tensor(std_div)
 
         if pool_type=='nopool':
             stride=2
@@ -129,7 +133,20 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
         margin_loss = margin_loss/ batch_size
         
         if self.reconstruct:
-            reconstruction_loss = self.reconstruction_loss(reconstructions, images/255.)
+            if hasattr(self, 'std_div') and self.std_div is not None:
+                # print images.size()
+                # print self.std_div.size()
+                # print self.std_div
+                for dim_curr in range(3):
+                    # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
+                    images[:,dim_curr,:,:]=torch.div(images[:,dim_curr,:,:],self.std_div[dim_curr])
+                    # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
+                # for dim_curr in range(3):
+                #     print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
+                
+                # raw_input()
+
+            reconstruction_loss = self.reconstruction_loss(reconstructions, images)
             reconstruction_loss = (0.00001 * reconstruction_loss)/batch_size
             # reconstruction_loss = reconstruction_loss/batch_size
             # (0.0000001 * reconstruction_loss)/batch_size
@@ -146,9 +163,9 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None, std_div = None):
         # print 'BN',bn
-        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights)
+        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights, std_div = std_div)
 
         if init:
             for idx_m,m in enumerate(model.features):
@@ -176,13 +193,18 @@ class Network:
         if self.model.reconstruct:
             module_list.append(self.model.decoder)
 
+        # print lr_list
+        # print len(module_list) 
         for lr_curr,param_set in zip(lr,module_list):
+            # print lr
             if lr_curr==0:
                 for param in param_set.parameters():
                     param.requires_grad = False
+                # lr_list.append({'params':None, 'lr': lr_curr})
             else:
                 lr_list.append({'params': param_set.parameters(), 'lr': lr_curr})
-                
+        # print lr_list
+        # raw_input()
         return lr_list
 
 

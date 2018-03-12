@@ -6,19 +6,20 @@ import numpy as np
 import scipy.misc
 import sklearn.metrics
 import glob
+import multiprocessing
+import visualizing_recon_new
 
 dir_server = '/disk3'
 str_replace = ['..',os.path.join(dir_server,'maheen_data/eccv_18')]
 click_str = 'http://vision3.idav.ucdavis.edu:1000'
 
-
-def compile_and_print_stats(test_dirs,out_file,type_metric=None):
+def collate_files(test_dirs):
 	label_pre = 'labels_all_'
 	pred_pre = 'predictions_'
 	labels_all = []
 	pred_all = []
 
-	str_print = []
+	
 
 	for test_dir in test_dirs:
 		num_files = glob.glob(os.path.join(test_dir,label_pre+'*.npy'))
@@ -31,18 +32,32 @@ def compile_and_print_stats(test_dirs,out_file,type_metric=None):
 
 	labels_all = np.concatenate(labels_all,0)
 	pred_all = np.concatenate(pred_all,0)
-	
-	pred_bin = pred_all
-	pred_bin[pred_bin<=0.5]=0
-	pred_bin[pred_bin>0.5]=1
+	return labels_all, pred_all
 
+def compile_and_print_stats(test_dirs,out_file,eer = True):
+	labels_all, pred_all = collate_files(test_dirs)
+	str_print = []
+	pred_bin = pred_all
+	
 	print 'labels_all.shape', labels_all.shape
 	print 'pred_all.shape', pred_all.shape
+	# raw_input()
+	# pred_bin[pred_bin<=0.5]=0
+	# pred_bin[pred_bin>0.5]=1
+	# f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
+	# f1_avg= np.mean(f1_per_class)
 
-	f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = type_metric)
-	print f1_per_class
-	raw_input()
-	f1_avg= np.mean(f1_per_class)
+	if eer:
+		f1_per_class, f1_avg, eer_idx, threshold_eer = calculate_f1_curve_eer(labels_all, pred_all)
+		print 'eer_idx: %d, threshold_eer: %.2f' % (eer_idx, threshold_eer) 
+		str_print.append('eer_idx: %d, threshold_eer: %.2f' % (eer_idx, threshold_eer))
+	else:
+		pred_bin[pred_bin<=0.5]=0
+		pred_bin[pred_bin>0.5]=1
+		f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
+		f1_avg= np.mean(f1_per_class)
+
+
 
 	print 'f1_per_class' 
 	str_print.append('f1_per_class')
@@ -73,13 +88,57 @@ def compile_and_print_stats(test_dirs,out_file,type_metric=None):
 	str_print.append( '')
 	util.writeFile(out_file,str_print)
 
+def calculate_f1_curve_eer(labels_all,pred_all):
+	# labels_all, pred_all = collate_files(test_dirs)
+	thresholds = np.unique(pred_all)
+	thresholds = np.arange(thresholds[0],1.,0.01)
+	# print thresholds
+	# print thresholds.shape
+	# print thresholds.shape
+	# thresholds = thresholds[::1000]
+	# # print thresholds.shape
+	# thresholds = np.arange(0.1,1.0,0.1)
+
+	
+	args = []
+	for idx_threshold_curr, threshold_curr in enumerate(thresholds):
+		args.append((threshold_curr,labels_all,pred_all,idx_threshold_curr))
+		
+
+	pool = multiprocessing.Pool(multiprocessing.cpu_count())
+	prec_recall = pool.map(get_prec_recall,args)
+	prec_recall = np.array(prec_recall)
+	# print prec_recall.shape
+	diff_vals = np.abs(prec_recall[:,0]-prec_recall[:,1])
+	eer_idx = np.argmin(diff_vals)
+	# print eer_idx, thresholds[eer_idx]
+
+	f1_per_class = get_f1((thresholds[eer_idx],labels_all,pred_all,0))
+	f1_avg = np.mean(f1_per_class) 
+	# print f1_per_class
+	# print np.mean(f1_per_class)
+	return f1_per_class, f1_avg, eer_idx, thresholds[eer_idx]
+
+def get_f1((threshold_curr,labels_all,pred_bin,idx_curr)):
+	pred_bin = np.array(pred_bin)
+	pred_bin[pred_bin<=threshold_curr]=0
+	pred_bin[pred_bin>threshold_curr]=1
+	f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
+	return f1_per_class
+
+def get_prec_recall((threshold_curr, labels_all,pred_bin,idx_curr)):
+	if idx_curr%10==0:
+		print idx_curr
+
+	pred_bin[pred_bin<=threshold_curr]=0
+	pred_bin[pred_bin>threshold_curr]=1
+	prec= sklearn.metrics.precision_score(labels_all, pred_bin, labels=None, pos_label=1, average=None)
+	recall = sklearn.metrics.recall_score(labels_all, pred_bin, labels=None, pos_label=1, average=None)
+
+	return np.mean(prec), np.mean(recall)
 
 
-
-
-
-
-def main():
+def script_print_f1_etc():
 	# dir_meta = '../experiments/khorrami_capsule_7_3_color3'
 	# dir_exp_pre = 'bp4d_110_'
 	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_50_step_50_0.1_0.001_0.001_0.001_lossweights_1.0_1.0'
@@ -87,21 +146,44 @@ def main():
 
 
 	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
-	dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
-	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
-	models_test = [9]
+	# dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
+	# models_test = [9]
 
 	
+	# dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
+	# models_test = [3]
+	# # ,9,14,19]	
+	# eer = False
+	# type_metric = 'samples'
+	# folds = [0,1,2]
+
+
 	dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
-	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
-	models_test = [2]	
-	type_metric = 'samples'
-	
+	dir_exp_post = '_reconstruct_True_True_cropkhAugNoColor_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	models_test = [9]
+	eer = False
 	folds = [0,1,2]
+
+	
+	dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0_fold_0_epoch_2_fix_exp_correct_mean'
+	models_test = [0]
+	eer = False
+	folds = [0,1,2]
+
+	# dir_meta = '../experiments/vgg_capsule_7_33'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0'
+	# models_test = [0]
+	# eer = False
+	# type_metric = 'samples'
+	# folds = [0,1,2]
 
 		
 	for model_test in models_test:
-		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(models_test)+'_'+type_metric+'.txt')
+		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
 
 		test_dirs = []
 		for fold_num in folds:
@@ -109,27 +191,55 @@ def main():
 			test_dirs.append(test_dir)
 			print test_dir
 		print 'fold_num,model_test', folds,model_test
-		compile_and_print_stats(test_dirs,out_file,type_metric = type_metric)
+		compile_and_print_stats(test_dirs,out_file, eer)
+		# calculate_f1_curve_eer(test_dirs,out_file)
 		print '___'
 
 
+def main():
+
+	script_print_f1_etc()
 	return
-	print 'hello'
 
-	dir_curr = '../experiments/khorrami_capsule_7_3_color3/bp4d_256_0_reconstruct_False_True_all_aug_marginmulti_False_wdecay_0_100_step_100_0.1_0.001_0.001_0.001_lossweights_1.0_1.0/results_model_10'
-	gt = np.load(os.path.join(dir_curr,'labels_all.npy'))
-	pred = np.load(os.path.join(dir_curr,'predictions.npy'))
+	dir_data_meta = '../data/bp4d'
+	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	train_test_folder = 'train_test_files_110_gray_align'
+	dir_exp_pre = 'bp4d_'+train_test_folder+'_'
+	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_20_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0'
+	model_test = 2
+	fold_num = 0
+	mean_file = os.path.join(dir_data_meta,train_test_folder,'train_'+str(fold_num)+'_mean.png')
+	std_file = os.path.join(dir_data_meta,train_test_folder,'train_'+str(fold_num)+'_std.png')
+	au_arr = [1,2,4,6,7,10,12,14,15,17,23,24]
 
-	pred[pred>0.5]=1
-	pred[pred<=0.5]=0
+	test_dir = os.path.join(dir_meta,dir_exp_pre+str(fold_num)+dir_exp_post,'results_model_'+str(model_test))
+	resize = 96
+	visualizing_recon_new.make_html_recon_active_thresh(test_dir,mean_file,std_file, au_arr, resize, thresh_active= 6)
 
-	ap = sklearn.metrics.f1_score(gt, pred,average='weighted')
-	print ap
-	print np.mean(ap)
-	print gt.shape
-	print pred.shape
-	print gt[:10]
-	print pred[:10]
+	# raw_input()
+
+	# labels_all, pred_all = collate_files([test_dir])
+	# print labels_all.shape, pred_all.shape
+	# threshold = 0.5
+	# pred_all[pred_all<=threshold] = 0
+	# pred_all[pred_all>threshold] = 1
+	# f1_avg = np.mean(sklearn.metrics.f1_score(labels_all,pred_all,average = None))
+	# print np.unique(pred_all), np.unique(labels_all),f1_avg
+
+	# num_annos = np.sum(labels_all,1)
+	# bin_keep = num_annos>=6
+	# print np.sum(bin_keep)
+
+
+
+
+	# test_dirs.append(test_dir)
+	# print test_dir
+	# print 'fold_num,model_test', folds,model_test
+	# compile_and_print_stats(test_dirs,out_file, eer)
+	# # calculate_f1_curve_eer(test_dirs,out_file)
+	# print '___'
+
 
 if __name__=='__main__':
 	main()

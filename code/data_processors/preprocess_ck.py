@@ -34,29 +34,45 @@ def saveCroppedFace(in_file,out_file,im_size=None,classifier_path=None,savegray=
     cv2.imwrite(out_file,roi)
 
 def saveCKresizeImages():
-    anno_file='../data/ck_original/anno_all.txt';
+
+
     
-    # dir_meta=os.path.join(dir_server,'expression_project/data/ck_96');
-    # out_file_html=os.path.join(dir_meta,'check_face.html');
-    # replace=False
-    # im_size=[96,96];
-    # out_dir_meta_meta='../data/ck_'+str(im_size[0])
     dir_server = '/disk3'
     str_replace = ['..','/disk3/maheen_data/eccv_18']
-    dir_meta = '../data/ck_256'.replace(str_replace[0],str_replace[1])
+
+    # dir_meta = '../data/ck_256'.replace(str_replace[0],str_replace[1])
+    # # dir_meta=os.path.join(dir_server,'expression_project/data/ck_192');
+    # out_file_html=os.path.join(dir_meta,'check_face.html');
+    # replace=False
+    # im_size=[256,256];
+    # out_dir_meta_meta='../data/ck_'+str(im_size[0])
+
+    # anno_file='../data/ck_original/anno_all.txt';
+    # out_dir_meta=os.path.join(out_dir_meta_meta,'im');
+    # old_out_dir_meta='../data/ck_original/cohn-kanade-images';
+    # out_file_anno=os.path.join(out_dir_meta_meta,'anno_all.txt');
+
+
+    dir_meta = '../data/ck_96'.replace(str_replace[0],str_replace[1])
     # dir_meta=os.path.join(dir_server,'expression_project/data/ck_192');
-    out_file_html=os.path.join(dir_meta,'check_face.html');
+    out_file_html=os.path.join(dir_meta,'check_face_non_peak_3.html');
     replace=False
-    im_size=[256,256];
+    im_size=[96,96];
     out_dir_meta_meta='../data/ck_'+str(im_size[0])
 
-    out_dir_meta=os.path.join(out_dir_meta_meta,'im');
+    anno_file = '../data/ck_original/cohn-kanade-images/non_peak_one_third.txt'
+    out_dir_meta=os.path.join(out_dir_meta_meta,'im_non_peak');
     old_out_dir_meta='../data/ck_original/cohn-kanade-images';
-    out_file_anno=os.path.join(out_dir_meta_meta,'anno_all.txt');
+    out_file_anno=os.path.join(out_dir_meta_meta,'anno_all_non_peek_one_third.txt');
+    
+
+
 
     util.makedirs(out_dir_meta);
     old_anno_data=util.readLinesFromFile(anno_file)
     ims=[line_curr.split(' ')[0] for line_curr in old_anno_data];
+    print ims[0]
+    # raw_input()
     problem_cases=[];
     new_anno_data=[];
 
@@ -301,13 +317,120 @@ def make_combo_train_test_files():
             merge_emo_facs(emo_file,facs_file,out_file,list_au_keep,idx_map)
 
 
+def get_non_peak_im_list():
+    dir_meta_96 = '../data/ck_96'
+    dir_meta = '../data/ck_original/cohn-kanade-images'
+    out_file = os.path.join(dir_meta,'non_peak_one_third.txt')
+
+    str_replace = [os.path.join(dir_meta_96,'im'),dir_meta]
+
+    ims = glob.glob(os.path.join(dir_meta, '*','*','*.png'))
+    print len(ims)
+    dirs_all = [os.path.split(im_curr)[0] for im_curr in ims]
+    dirs_all = list(set(dirs_all))
+    print len(dirs_all)
+
+    dirs_needed = []
+    all_files = []
+    train_file = os.path.join(dir_meta_96,'train_test_files','train_0.txt')
+    test_file = os.path.join(dir_meta_96,'train_test_files','test_0.txt')
+    # all_files = [train_file,test_file]
+    all_im = []
+    for file_curr in [train_file,test_file]:
+        lines = util.readLinesFromFile(file_curr)
+        all_im = all_im+[line_curr.split(' ')[0] for line_curr in lines]
+    print len(all_im), len(list(set(all_im)))
+
+    just_dirs = [os.path.split(im_curr)[0] for im_curr in all_im]
+    just_dirs = list(set(just_dirs))
+
+    print len(just_dirs)
+    print just_dirs[0]
+    just_dirs = [dir_curr.replace(str_replace[0],str_replace[1]) for dir_curr in just_dirs]
+
+    ims_all =[]
+    diffs = []
+    for dir_curr in just_dirs:
+        ims_curr = glob.glob(os.path.join(dir_curr,'*.png'))
+        ims_curr.sort()
+        total_ims = len(ims_curr)
+        # end_select = total_ims-3
+        # start_select = max(end_select-3,0)
+
+        start_select = total_ims//3
+        end_select = start_select+3
+        ims_select = ims_curr[start_select:end_select]
+        assert len(ims_select)==3
+        diffs.append(start_select+3-len(ims_curr))
+        ims_all.extend(ims_select)
+
+
+    diffs = np.array(diffs)
+    print np.min(diffs), np.max(diffs)
+    print len(ims_all)
+    print ims_all[0]
+    util.writeFile(out_file,ims_all)
+
+
+def write_non_peak_files():
+    dir_meta = '../data/ck_96'
+    non_peak_file = os.path.join(dir_meta, 'anno_all_non_peek_one_third.txt')
+    dir_files = os.path.join(dir_meta, 'train_test_files')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_non_peak_one_third')
+    util.mkdir(out_dir_files)
+
+
+    non_peak_files = util.readLinesFromFile(non_peak_file)
+
+    num_folds = 10
+    
+    for fold_curr in range(num_folds):
+        already_done = []
+        for file_pre in ['train','test']:
+            file_curr = os.path.join(dir_files,file_pre+'_'+str(fold_curr)+'.txt')
+            
+            out_file_curr = os.path.join(out_dir_files,file_pre+'_'+str(fold_curr)+'.txt')
+            
+            lines = util.readLinesFromFile(file_curr)
+            out_lines = []
+
+            for line_curr in lines:
+                im_curr,label_curr = line_curr.split(' ')
+                if int(label_curr)==0:
+                    out_lines.append(line_curr)
+                else:
+                    im_dir = os.path.split(im_curr)[0]
+                    im_dir = im_dir.replace('im','im_non_peak')
+                    assert os.path.exists(im_dir)
+                    if im_dir not in already_done:
+
+                        rel_files = [val for val in non_peak_files if val.startswith(im_dir)]
+                        for rel_file in rel_files:
+                            out_lines.append(' '.join([rel_file,label_curr]))
+                        already_done.append(im_dir)
+            
+            print len(lines)
+            print len(out_lines)
+            print out_file_curr
+            util.writeFile(out_file_curr,out_lines)
+
+
+
+
+
+
 
 def main():
+    # write_non_peak_files()
+
+    # saveCKresizeImages()
+    # get_non_peak_im_list()
+
     # get_list_of_aus()
     # list_au_keep = [1, 2, 4, 5, 6, 7, 9, 12, 14, 15, 16, 20, 23, 26]
     # list_au_keep.sort()
 
-    make_combo_train_test_files()
+    # make_combo_train_test_files()
 
     # save_dummy_std_vals()
     # create_256_train_test_files()
