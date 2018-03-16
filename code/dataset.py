@@ -273,7 +273,75 @@ class Bp4d_Dataset(generic_dataset):
 
         return sample
 
+class Bp4d_Dataset_with_mean_std_val(generic_dataset):
 
+    def __init__(self, text_file, mean_std = None, resize = None, binarize = False, transform=None, bgr= False):
+        super(Bp4d_Dataset_with_mean_std_val, self).__init__(text_file,transform)
+        # self.mean = scipy.misc.imread(mean_file)
+        # .astype(np.float32)
+        # self.std = scipy.misc.imread(std_file)
+        # .astype(np.float32)
+        # self.std[self.std==0]=1.
+        self.resize = resize
+        self.binarize = binarize
+        self.bgr = bgr
+
+        # if self.resize is not None:
+            # self.mean = scipy.misc.imresize(self.mean,(self.resize,self.resize))
+            # .astype(np.float32)
+            # self.std = scipy.misc.imresize(self.std,(self.resize,self.resize))
+            # .astype(np.float32)
+        # print np.min(self.mean),np.max(self.mean)
+        # print np.min(self.std),np.max(self.std)
+
+        self.mean = mean_std[0]
+        self.mean = self.mean[np.newaxis,np.newaxis,:]
+        self.std = mean_std[1]
+        self.std = self.std[np.newaxis,np.newaxis,:]
+        
+        # self.std = self.std.astype(np.float32)
+
+        # print np.min(self.mean),np.max(self.mean)
+        # print np.min(self.std),np.max(self.std)
+
+        # raw_input()
+
+
+        
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        info = train_file_curr.split(' ')
+        train_file_curr = info[0]
+        labels = [int(val) for val in info[1:]]
+        labels = np.array(labels)
+
+        # .astype('float')
+        if self.binarize :
+            # print labels
+            labels[labels>0]=1
+            labels[labels<1]=0
+        # labels[labels<0.5]=0.1
+        image = scipy.misc.imread(train_file_curr)
+        # print image.shape
+        if self.bgr:
+            image = image[:,:,[2,1,0]]        
+        
+        if self.resize is not None:
+            if image.shape[0]!= self.resize or image.shape[1]!= self.resize:
+                image = scipy.misc.imresize(image,(self.resize,self.resize))
+        image = image.astype(np.float32)          
+
+        image = image-self.mean
+        image = image/self.std
+        # print image.shape
+        # print self.mean.shape
+        # print self.std.shape
+        # print image.shape, np.min(np.min(image,0),0),np.max(np.max(image,0),0)
+        # raw_input()
+        sample = {'image': image, 'label': labels}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
 
 class Bp4d_Dataset_Mean_Std_Im(generic_dataset):
 

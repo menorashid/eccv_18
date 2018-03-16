@@ -64,12 +64,16 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
     
     def forward(self, data, y = None,return_caps = False):
         x = self.vgg_base(data)
-        # print x.size()
+
+        # x = x.view(x.size(0),512,-1)
+        # x = x[:,:12,:32]
+        # # print x.size()
         x = self.features(x)
-        # print x.size()
+        # # print x.size()
         x = x.squeeze()
         
         classes = (x ** 2).sum(dim=-1) ** 0.5
+        # print x.size()
         # classes = F.sigmoid(classes)
         if self.reconstruct:
             if y is None:
@@ -133,20 +137,22 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
         margin_loss = margin_loss/ batch_size
         
         if self.reconstruct:
+            images_copy = Variable(images.data)
             if hasattr(self, 'std_div') and self.std_div is not None:
                 # print images.size()
                 # print self.std_div.size()
                 # print self.std_div
+
                 for dim_curr in range(3):
                     # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
-                    images[:,dim_curr,:,:]=torch.div(images[:,dim_curr,:,:],self.std_div[dim_curr])
+                    images_copy[:,dim_curr,:,:]=torch.div(images_copy[:,dim_curr,:,:],self.std_div[dim_curr])
                     # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
                 # for dim_curr in range(3):
                 #     print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
                 
                 # raw_input()
 
-            reconstruction_loss = self.reconstruction_loss(reconstructions, images)
+            reconstruction_loss = self.reconstruction_loss(reconstructions, images_copy)
             reconstruction_loss = (0.00001 * reconstruction_loss)/batch_size
             # reconstruction_loss = reconstruction_loss/batch_size
             # (0.0000001 * reconstruction_loss)/batch_size
@@ -204,6 +210,8 @@ class Network:
             else:
                 lr_list.append({'params': param_set.parameters(), 'lr': lr_curr})
         # print lr_list
+        # print len(lr_list)
+
         # raw_input()
         return lr_list
 

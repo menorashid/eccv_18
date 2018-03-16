@@ -1,5 +1,6 @@
 import numpy as np
 import scipy.misc
+import cv2
 
 def crop_center(img,cropx,cropy):
     # y,x = img.shape
@@ -24,7 +25,9 @@ def horizontal_flip(im):
         im = np.array(im[:,::-1,:])
     return im
 
-def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean_im=None, std_im=None, im_size = 96):
+
+
+def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean_im=None, std_im=None, im_size = 96, color = False):
         # khorrami augmentation for ck+
         # trying to get baseline results 
 
@@ -48,7 +51,10 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
         b_range = [0.7, 1.4]
         c_range = [-0.1,0.1]
         
+
         if 'pixel_augment' in list_of_to_dos:
+            assert color==False
+
             im = im[:,:,0]
             im = im*std_im
             im = np.clip(im + mean_im,0,255)
@@ -63,13 +69,24 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
             im = im*255.
             im = (im - mean_im)/std_im
             im = im[:,:,np.newaxis]
-            
-        im = np.concatenate((im,im,im),2)
-        min_im = np.min(im)
-        im = im-min_im
-        max_im = np.max(im)
-        im = im/max_im 
+        
+        if not color:
+            im = np.concatenate((im,im,im),2)
 
+        min_im = np.array([np.min(im[:,:,idx_arr]) for idx_arr in range(im.shape[2])])
+        min_im = min_im[np.newaxis,np.newaxis,:]
+
+        max_im = np.array([np.max(im[:,:,idx_arr]) for idx_arr in range(im.shape[2])])
+        max_im = max_im[np.newaxis,np.newaxis,:]
+        # print max_im.shape
+        im = im-min_im
+        # max_im = np.max(im,2,keepdims=True)
+        # print max_im
+        im = im/max_im 
+        # print np.min(im), np.max(im)
+        # print im.shape
+        # print 'HELLO'
+        # raw_input()
         
 
         # flip it
@@ -122,10 +139,16 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
             
             im[start_idx_im[0]:end_idx_im[0],start_idx_im[1]:end_idx_im[1],:] = im_rs[start_idx_im_rs[0]:end_idx_im_rs[0],start_idx_im_rs[1]:end_idx_im_rs[1],:]
 
-        im = im[:,:,:1]
+        if not color:
+            im = im[:,:,:1]
+        
         if 'rotate' in list_of_to_dos or 'scale_translate' in list_of_to_dos:
             im = im/255.
 
         im = im * max_im
         im = im + min_im
+        # print np.min(im), np.max(im)
+        # scipy.misc.imsave('../scratch/hello.jpg',im)
+
+        # raw_input()
         return im

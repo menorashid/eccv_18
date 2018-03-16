@@ -9,11 +9,11 @@ import dataset
 import numpy as np
 import torch
 from analysis import getting_accuracy
-from helpers import util,visualize,augmenters
+# from helpers import util,visualize,augmenters
 import save_visualizations
 
 
-def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False):
+def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
@@ -55,7 +55,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
 
     init = False
 
-    strs_append = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['lossweights']+loss_weights])
+    strs_append = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['lossweights']+loss_weights+[more_aug]])
     
     
     
@@ -80,7 +80,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            # continue 
+            continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -105,36 +105,50 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         class_weights = util.get_class_weights_au(util.readLinesFromFile(train_file))
         
-        data_transforms = {}
-        data_transforms['train']= transforms.Compose([
-            transforms.ToPILImage(),
-            # transforms.Resize((im_resize,im_resize)),
-            transforms.RandomCrop(im_size),
-            transforms.RandomHorizontalFlip(),
-            transforms.RandomRotation(15),
-            transforms.ColorJitter(),
-            transforms.ToTensor(),
-            lambda x: x*255,
-            transforms.Normalize(mean_std[0,:],mean_std[1,:]),
-        ])
-        data_transforms['val']= transforms.Compose([
-            transforms.ToPILImage(),
-            transforms.Resize((im_size,im_size)),
-            transforms.ToTensor(),
-            lambda x: x*255,
-            transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+        if more_aug:
+            print more_aug
+            list_of_to_dos = ['flip','rotate','scale_translate']            
+            data_transforms = {}
+            data_transforms['train']= transforms.Compose([
+                lambda x: augmenters.random_crop(x,im_size),
+                lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
+                transforms.ToTensor(),
+                lambda x: x*255,
             ])
+            data_transforms['val']= transforms.Compose([
+                transforms.ToTensor(),
+                lambda x: x*255,
+            ])
+            train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'])
+            test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
+        else:
+            data_transforms['train']= transforms.Compose([
+                transforms.ToPILImage(),
+                # transforms.Resize((im_resize,im_resize)),
+                transforms.RandomCrop(im_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ColorJitter(),
+                transforms.ToTensor(),
+                lambda x: x*255,
+                transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+            ])
+            data_transforms['val']= transforms.Compose([
+                transforms.ToPILImage(),
+                transforms.Resize((im_size,im_size)),
+                transforms.ToTensor(),
+                lambda x: x*255,
+                transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+                ])
 
-        # print train_file
-        # print test_file
-        train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
-        test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
-        # train_data = test_data
+            train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
+            test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
+            
         
         network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights,std_div = std_div)
         
-        batch_size = 96
-        batch_size_val = 96
+        batch_size = 32
+        batch_size_val = 32
         
         util.makedirs(out_dir_train)
         
@@ -160,7 +174,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                     network_params = network_params,
                     weight_decay=wdecay)
         test_params = dict(out_dir_train = out_dir_train,
-                    model_num = 0, 
+                    model_num = num_epochs-1, 
                     train_data = train_data,
                     test_data = test_data,
                     gpu_id = 0,
@@ -183,7 +197,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         util.writeFile(param_file,all_lines)
 
         # if reconstruct:
-        # train_model_recon(**train_params)
+        train_model_recon(**train_params)
 
         test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
@@ -591,16 +605,16 @@ def main():
     # return
 
 
-    epoch_stuff = [350,2]
-    lr = [0,0.001,0.001]
+    epoch_stuff = [350,5]
+    lr = [0.0001,0.001,0.001]
     route_iter = 3
-    folds = [1,2,0]
+    folds = [1]
     model_name = 'vgg_capsule_7_3_smallrecon'
     disfa = False
     loss_weights = [1.,0.1]
     # align = True
 
-    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = loss_weights, exp = True, align = True, disfa = disfa)
+    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = loss_weights, exp = True, align = True, disfa = disfa, more_aug = True)
 
     return
 
