@@ -183,9 +183,9 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         util.writeFile(param_file,all_lines)
 
         # if reconstruct:
-        train_model_recon(**train_params)
+        # train_model_recon(**train_params)
 
-        # test_model_recon(**test_params)
+        test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -541,7 +541,7 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
         # if reconstruct:
 
         # train_model_recon(**train_params)
-        test_model_recon(**test_params)
+        # test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -587,19 +587,20 @@ def train_disfa_ft():
 
 def main():
     
-    train_disfa_ft()
-    return
+    # train_disfa_ft()
+    # return
 
 
     epoch_stuff = [350,2]
     lr = [0,0.001,0.001]
     route_iter = 3
-    folds = [0,2]
-    model_name = 'vgg_capsule_7_3'
-    disfa = True
+    folds = [1,2,0]
+    model_name = 'vgg_capsule_7_3_smallrecon'
+    disfa = False
+    loss_weights = [1.,0.1]
     # align = True
 
-    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = [1.,1.], exp = True, align = True, disfa = disfa)
+    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = loss_weights, exp = True, align = True, disfa = disfa)
 
     return
 
@@ -611,6 +612,7 @@ def main():
     epoch_stuff = [350,15]
     lr = [0.001,0.001,0.001]
     res = True
+
 
     # # # model_name = 'khorrami_capsule_7_3_gray'
     # # # disfa = True

@@ -1362,6 +1362,9 @@ def test_model_recon(out_dir_train,
 
     print 'barebones',barebones
     
+    num_correct =0
+    num_total = 0
+
     for num_iter,batch in enumerate(test_dataloader):
         predictions = []
         labels_all = []
@@ -1432,6 +1435,10 @@ def test_model_recon(out_dir_train,
         labels_all = labels_all[0]
         # predictions = np.concatenate(predictions)
         predictions = predictions[0]
+
+        num_correct = num_correct+ np.sum(predictions==labels_all)
+        num_total = num_total+labels_all.size
+
         print os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all.shape
         np.save(os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all)
         np.save(os.path.join(out_dir_results,'predictions_'+str(num_iter)+'.npy'),predictions)
@@ -1475,7 +1482,9 @@ def test_model_recon(out_dir_train,
     if len(labels_all.shape)>1:
         accuracy = get_auc(predictions,labels_all)
     else:
-        accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+        accuracy = num_correct/float(num_total)
+        print num_correct,num_total
+        # np.sum(predictions==labels_all)/float(labels_all.size)
 
     str_display = 'val accuracy: %.4f' %(accuracy)
     log_arr.append(str_display)

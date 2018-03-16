@@ -68,6 +68,47 @@ class CK_96_Dataset(generic_dataset):
 
         return sample
 
+class CK_96_Dataset_with_rs(generic_dataset):
+    def __init__(self, text_file, mean_file, std_file, transform=None,resize = None):
+        super(CK_96_Dataset_with_rs, self).__init__(text_file,transform)
+        self.resize = resize
+        self.mean = scipy.misc.imread(mean_file)
+        self.std = scipy.misc.imread(std_file)
+        self.std[self.std==0]=1.
+        
+        if self.resize is not None:
+            self.mean = scipy.misc.imresize(self.mean,(self.resize,self.resize))
+            self.std = scipy.misc.imresize(self.std,(self.resize,self.resize))
+        
+        self.mean = self.mean.astype(np.float32)
+        self.std = self.std.astype(np.float32)
+
+    def __getitem__(self, idx):
+        train_file_curr = self.files[idx]
+        train_file_curr,label = train_file_curr.split(' ')
+        label = int(label)
+        image = scipy.misc.imread(train_file_curr)
+        if self.resize is not None:
+            if image.shape[0]!= self.resize or image.shape[1]!= self.resize:
+                image = scipy.misc.imresize(image,(self.resize,self.resize))
+
+        image = image.astype(np.float32)
+
+        # print 'new_im'
+        # print np.min(image),np.max(image)
+        image = image-self.mean
+        # print np.min(image),np.max(image),np.min(self.mean),np.max(self.mean)
+        image = image/self.std
+        # print np.min(image),np.max(image),np.min(self.std),np.max(self.std)
+        image = image[:,:,np.newaxis]
+        
+        # print np.min(image), np.max(image)        
+        # raw_input()
+        
+        sample = {'image': image, 'label': label}
+        sample['image'] = self.transform(sample['image'])
+
+        return sample
 
 class CK_96_Dataset_WithAU(generic_dataset):
     def __init__(self, text_file, mean_file, std_file, transform=None):
@@ -208,7 +249,7 @@ class Bp4d_Dataset(generic_dataset):
         if self.binarize :
             labels[labels>0]=1
             labels[labels<1]=0
-        
+
         # .astype('float')
         # labels[labels>0]=1
         # labels[labels<1]=0

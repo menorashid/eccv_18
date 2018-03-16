@@ -27,6 +27,8 @@ class Dynamic_Capsule_Model_Super(nn.Module):
             y = Variable(torch.sparse.torch.eye(self.num_classes)).cuda().index_select(dim=0, index=y)
         reconstructions = self.decoder((x * y[:, :, None]).view(x.size(0), -1))
         reconstructions = reconstructions.view(reconstructions.size(0),1,int(math.sqrt(reconstructions.size(1))),int(math.sqrt(reconstructions.size(1))))
+        if hasattr(self, 'upsampler'):
+            reconstructions = self.upsampler(reconstructions)
 
         return reconstructions
 

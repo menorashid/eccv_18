@@ -14,7 +14,9 @@ def print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt')
     max_val_idx_all = []
 
     for split_num in range_splits:
+        
         dir_curr = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
+        # print dir_curr
         log_file = os.path.join(dir_curr,log)
         log_lines = util.readLinesFromFile(log_file)
         log_lines = [line for line in log_lines if 'val accuracy' in line]
@@ -140,7 +142,98 @@ def view_loss_curves(dir_exp_meta,pre_split,post_split,range_splits,model_num):
     visualize.writeHTML(out_file_html,ims_html,captions_html,200,200)
     print out_file_html.replace(dir_server,'http://vision3.idav.ucdavis.edu:1000')
 
+
+def get_values_from_logs(dir_exp_meta,pre_split,post_split,range_splits,range_tests,test_post):
+    
+    accus = np.zeros((len(range_splits),len(range_tests)))
+
+    for idx_split_num, split_num in enumerate(range_splits):
+        dir_exp = os.path.join(dir_exp_meta,pre_split+str(split_num)+post_split)
+        for idx_model_num, model_num in enumerate(range_tests):
+            dir_res = os.path.join(dir_exp,'results_model_'+str(model_num)+test_post)
+            log_file = os.path.join(dir_res,'log.txt')
+            accu_curr = util.readLinesFromFile(log_file)[-1]
+            accu_curr = float(accu_curr.split(' ')[-1])
+            # print accu_curr
+            # raw_input()
+            accus[idx_split_num,idx_model_num] = accu_curr
+    return accus
+
 def main():
+    out_dir_figures = '../experiments/figures/mmi'
+    util.makedirs(out_dir_figures)
+
+    dir_exp_meta = '../experiments/khorrami_capsule_7_3_bigclass3'
+    pre_split = 'mmi_96_'
+    post_split = '_reconstruct_True_True_all_aug_margin_False_wdecay_0_300_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_100.0'
+    # '_reconstruct_True_True_all_aug_margin_False_wdecay_0_300_exp_0.96_350_1e-06_0.001_0.001_0.001'
+    
+    str_titles = ['Hard Training','Easy Training']; range_splits = [0,1]
+    str_titles = ['Easy Training']; range_splits = [1]
+    range_tests = range(0,300,10)+[299]
+    test_post = ''
+
+    accus_us = []
+    accus_hard = get_values_from_logs(dir_exp_meta,pre_split,post_split,range_splits,range_tests,test_post)
+    test_post ='_easy'
+    accus_easy = get_values_from_logs(dir_exp_meta,pre_split,post_split,range_splits,range_tests,test_post)
+    accus_us = [accus_hard,accus_easy]
+
+    dir_exp_meta = '../experiments/khorrami_ck_96_caps_bl'
+    # 0_train_test_files_khorrami_ck_96_300_exp_0.96_350_1e-06_0.001_0.001/
+    # '../experiments/khorrami_capsule_7_3_bigclass3'
+    pre_split = 'mmi_96_'
+    # 'mmi_96_'
+    # /mmi_96_1
+    post_split = '_train_test_files_khorrami_ck_96_300_exp_0.96_350_1e-06_0.001_0.001'
+    
+    test_post =''    
+    accus_hard = get_values_from_logs(dir_exp_meta,pre_split,post_split,range_splits,range_tests,test_post)
+
+    test_post ='_easy'
+    accus_easy = get_values_from_logs(dir_exp_meta,pre_split,post_split,range_splits,range_tests,test_post)
+    accus_them = [accus_hard,accus_easy]  
+    # print accus_hard
+    # print accus_easy
+    # raw_input()
+
+
+
+
+    str_tests = ['Hard Test','Easy Test']
+    for fold_curr,str_title in enumerate(str_titles):
+        plot_vals = []
+        legend_entries =[]
+        for idx_ease,str_test in enumerate(str_tests):
+            # for idx_us,(us,them) in enumerate( zip(accus_us,accus_them)):
+            plot_vals.append((range_tests,accus_us[idx_ease][fold_curr]))
+            plot_vals.append((range_tests,accus_them[idx_ease][fold_curr]))
+            legend_entries.extend(['Ours '+str_test,'BL '+str_test])
+        
+        figure_name = str_title.lower().replace(' ','_')+'.jpg'
+        out_file_curr = os.path.join(out_dir_figures,figure_name)
+        visualize.plotSimple(plot_vals,out_file = out_file_curr,title = str_title,xlabel = 'Epoch',ylabel = 'Accuracy',legend_entries=legend_entries)
+        print out_file_curr
+
+
+
+
+
+
+    
+
+
+
+    return 
+
+    dir_exp_meta = '../experiments/khorrami_capsule_7_33'
+    pre_split = 'ck_96_'
+    post_split = '_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001'
+    range_splits = range(10)
+    print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt')
+    
+    return
+
 
     dir_exp_meta = '../experiments/khorrami_caps_k7_s3_oulu'
     pre_split = 'oulu_single_'

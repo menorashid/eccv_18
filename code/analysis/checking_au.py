@@ -167,21 +167,32 @@ def script_print_f1_etc():
 	folds = [0,1,2]
 
 	
-	dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
-	dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0_fold_0_epoch_2_fix_exp_correct_mean'
-	models_test = [0]
-	eer = False
-	folds = [0,1,2]
-
-	# dir_meta = '../experiments/vgg_capsule_7_33'
-	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
-	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0'
+	# dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0_fold_0_epoch_2_fix_exp_correct_mean'
 	# models_test = [0]
 	# eer = False
-	# type_metric = 'samples'
 	# folds = [0,1,2]
 
-		
+	dir_meta = '../experiments/vgg_capsule_7_33'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0'
+	models_test = [0]
+	eer = False
+	type_metric = 'samples'
+	folds = [0,1,2]
+
+	dir_exp_pre = 'disfa_256_train_test_8_au_all_method_256_color_align_'
+	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_2_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0'
+	# models_test = [0]
+	# _results.txt
+
+	
+	# dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_True_cropkhAugNoColor_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_1.0_fold_0_epoch_9_moreAug_fix_exp_correct_mean'
+	# models_test = [9]
+	# eer = False
+	# folds = [0,1,2]
+
 	for model_test in models_test:
 		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
 

@@ -370,6 +370,18 @@ def plotImageAndAnno(im_file,out_file,anno,color_curr=(0,255,0)):
     draw.point(anno,fill=color_curr)
     im.save(out_file);
 
+
+def plot_colored_mats(out_file, mat_curr, min_val, max_val, title='', cmap=plt.cm.Blues):
+    
+    plt.imshow(mat_curr, interpolation='nearest', cmap=cmap)
+    plt.clim(min_val,max_val)
+    plt.title(title)
+    plt.colorbar()
+    
+    plt.tight_layout()
+    plt.savefig(out_file);
+    plt.close();    
+
 def plot_confusion_matrix(cm, classes, out_file,
                           normalize=False,
                           title='Confusion matrix',
