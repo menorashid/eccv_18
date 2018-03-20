@@ -133,20 +133,13 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
         margin_loss = margin_loss/ batch_size
         
         if self.reconstruct:
+            images_copy = Variable(images.data)
             if hasattr(self, 'std_div') and self.std_div is not None:
-                # print images.size()
-                # print self.std_div.size()
-                # print self.std_div
                 for dim_curr in range(3):
-                    # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
-                    images[:,dim_curr,:,:]=torch.div(images[:,dim_curr,:,:],self.std_div[dim_curr])
-                    # print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
-                # for dim_curr in range(3):
-                #     print torch.min(images[:,dim_curr,:,:]).data[0],torch.max(images[:,dim_curr,:,:]).data[0]
-                
-                # raw_input()
+                    images_copy[:,dim_curr,:,:]=torch.div(images_copy[:,dim_curr,:,:],self.std_div[dim_curr])
+                    
 
-            reconstruction_loss = self.reconstruction_loss(reconstructions, images)
+            reconstruction_loss = self.reconstruction_loss(reconstructions, images_copy)
             reconstruction_loss = (0.00001 * reconstruction_loss)/batch_size
             # reconstruction_loss = reconstruction_loss/batch_size
             # (0.0000001 * reconstruction_loss)/batch_size

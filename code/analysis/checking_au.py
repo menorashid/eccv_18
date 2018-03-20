@@ -62,13 +62,15 @@ def compile_and_print_stats(test_dirs,out_file,eer = True):
 	print 'f1_per_class' 
 	str_print.append('f1_per_class')
 	for f1_curr in f1_per_class:
-		print f1_curr
+		# print f1_curr
 		str_print.append('%.3f' % f1_curr)
+		print str_print[-1]
 	print ''
 	str_print.append( '')
 
-	print 'f1_avg', f1_avg
+	# print 'f1_avg', f1_avg
 	str_print.append( 'f1_avg %.3f' % f1_avg)
+	print str_print[-1]
 	print ''
 	str_print.append( '')
 
@@ -78,15 +80,17 @@ def compile_and_print_stats(test_dirs,out_file,eer = True):
 	print 'auc_per_class'
 	str_print.append( 'auc_per_class')
 	for auc_curr in auc_per_class:
-		print auc_curr
+		# print auc_curr
 		str_print.append('%.3f' %  auc_curr)
+		print str_print[-1]
 	print ''
 	str_print.append( '')
-	print 'auc_avg', auc_avg
+	# print 'auc_avg', auc_avg
 	str_print.append( 'auc_avg %.3f' % auc_avg)
+	print str_print[-1]
 	print ''
 	str_print.append( '')
-	util.writeFile(out_file,str_print)
+	# util.writeFile(out_file,str_print)
 
 def calculate_f1_curve_eer(labels_all,pred_all):
 	# labels_all, pred_all = collate_files(test_dirs)
@@ -201,6 +205,39 @@ def script_print_f1_etc():
 	folds = [0,1,2]
 	eer = False
 
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.001_0.001_lossweights_1.0_0.1_True'
+	models_test = [0]
+	folds = [0,1,2]
+	eer = False
+
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_0.1_True'
+	models_test = [0]
+	folds = [0,1,2]
+	eer = False
+
+
+	dir_meta = '../experiments/vgg_capsule_7_33'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_0.1_True'
+	# models_test = [0]
+	# folds = [0,1,2]
+	# eer = False
+
+	dir_exp_pre = 'disfa_256_train_test_8_au_all_method_256_color_align_'
+	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_0.1_True'
+	models_test = [0]
+	folds = [0,1,2]
+	eer = False
+
+	# dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	# dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_True_cropkhAugNoColor_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_1.0_fold_0_epoch_9_moreAug_fix_exp_correct_mean'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+
 	for model_test in models_test:
 		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
 
@@ -215,8 +252,70 @@ def script_print_f1_etc():
 		print '___'
 
 
+def get_ideal_train_test_file():
+	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	dir_exp_post = '_reconstruct_True_True_cropkhAugNoColor_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	models_test = [9]
+	eer = False
+	folds = [0]
+	# test_dir = 
+	data_dir_meta = '../data/bp4d'
+	in_test_file = os.path.join(data_dir_meta, 'train_test_files_110_gray_align','test_0.txt')
+	assert os.path.exists(in_test_file)
+
+	out_test_file = os.path.join(data_dir_meta, 'train_test_files_110_gray_align','test_0_best_results.txt')
+	test_lines = util.readLinesFromFile(in_test_file)
+	print os.path.exists(out_test_file)
+
+	for model_test in models_test:
+		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
+
+		test_dirs = []
+		for fold_num in folds:
+			test_dir = os.path.join(dir_meta,dir_exp_pre+str(fold_num)+dir_exp_post,'results_model_'+str(model_test))
+			test_dirs.append(test_dir)
+			print test_dir
+		print 'fold_num,model_test', folds,model_test
+		labels_all, pred_bin = collate_files(test_dirs)
+		pred_bin[pred_bin<=0.5]=0
+		pred_bin[pred_bin>0.5]=1
+		print labels_all.shape,pred_bin.shape
+		f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
+		f1_avg= np.mean(f1_per_class)
+
+		bin_true = labels_all==pred_bin
+		print bin_true.shape
+		bin_true_row = np.sum(bin_true,1)
+		print bin_true_row.shape,np.min(bin_true_row),np.max(bin_true_row)
+		rows_to_keep = bin_true_row==12
+		print rows_to_keep.shape,np.sum(rows_to_keep)
+		assert rows_to_keep.size==len(test_lines)
+		lines_to_keep = [line_curr for idx_line_curr, line_curr in enumerate(test_lines) if rows_to_keep[idx_line_curr]]
+		print len(lines_to_keep)
+		util.writeFile(out_test_file,lines_to_keep)
+
+
+
+
+
+
+
+
+		print f1_avg
+		
+		# compile_and_print_stats(test_dirs,out_file, eer)
+		# calculate_f1_curve_eer(test_dirs,out_file)
+		print '___'
+
+
+
+
 def main():
 
+	# get_ideal_train_test_file()
+
+	# return
 	script_print_f1_etc()
 	return
 

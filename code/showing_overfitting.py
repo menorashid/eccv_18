@@ -155,7 +155,7 @@ def main():
     
     lr = [0.001,0.001]
     route_iter = 1
-    folds = [0]
+    folds = [9]
     model_name = 'khorrami_capsule_7_3'
     epoch_stuff = [600,600]
     wdecay = 0
@@ -165,21 +165,33 @@ def main():
     
     lr = [0.001,0.001]
     route_iter = 3
-    folds = [0]
+    folds = [9]
     model_name = 'khorrami_capsule_7_3'
     epoch_stuff = [600,600]
     wdecay = 0
     reconstruct = False
     train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu)
 
+
     lr = [0.001,0.001,0.001]
     route_iter = 3
-    folds = [0]
+    folds = [9]
     model_name = 'khorrami_capsule_7_3'
     epoch_stuff = [600,600]
     wdecay = 0
     reconstruct = True
-    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu)
+    loss_weights = [1.,1.]
+    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
+
+    lr = [0.001,0.001,0.001]
+    route_iter = 3
+    folds = [9]
+    model_name = 'khorrami_capsule_7_3'
+    epoch_stuff = [600,600]
+    wdecay = 0
+    reconstruct = True
+    loss_weights = [1.,100.]
+    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
 
     # folds = range(1,10)
 

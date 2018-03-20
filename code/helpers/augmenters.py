@@ -139,15 +139,20 @@ def augment_image( im, list_of_to_dos = ['flip','rotate','scale_translate'],mean
             
             im[start_idx_im[0]:end_idx_im[0],start_idx_im[1]:end_idx_im[1],:] = im_rs[start_idx_im_rs[0]:end_idx_im_rs[0],start_idx_im_rs[1]:end_idx_im_rs[1],:]
 
+        # print color, im.shape
         if not color:
             im = im[:,:,:1]
-        
+            max_im = max_im.squeeze()[0]
+            min_im = min_im.squeeze()[0]
+            # print max_im, min_im
+
         if 'rotate' in list_of_to_dos or 'scale_translate' in list_of_to_dos:
             im = im/255.
 
+        # print color, im.shape
         im = im * max_im
         im = im + min_im
-        # print np.min(im), np.max(im)
+        # print np.min(im), np.max(im), im.shape
         # scipy.misc.imsave('../scratch/hello.jpg',im)
 
         # raw_input()

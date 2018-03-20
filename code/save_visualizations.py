@@ -59,6 +59,7 @@ def save_routings(out_dir_train,
                 margin_params = None,
                 network_params = None,
                 barebones = True,
+                au=False
                 ):
     
     mag_range = np.arange(-0.5,0.6,0.1)
@@ -87,11 +88,11 @@ def save_routings(out_dir_train,
     model.cuda()
     model.eval()
     
-    predictions = []
-    labels_all = []
-    out_all = []
-    caps_all = []
-    recons_all = {}
+    # predictions = []
+    # labels_all = []
+    # out_all = []
+    # caps_all = []
+    # recons_all = {}
 
     mean_im = test_data.mean
     
@@ -100,7 +101,7 @@ def save_routings(out_dir_train,
 
 
     for num_iter,batch in enumerate(test_dataloader):
-        
+        print 'NUM ITER',num_iter
 
         # batch = test_dataloader.next() 
         if criterion=='marginmulti':
@@ -111,23 +112,37 @@ def save_routings(out_dir_train,
 
         data = Variable(batch['image'].cuda())
 
-        recons_all[(0,0)] = data.data.cpu().numpy()
+        # recons_all[(0,0)] = data.data.cpu().numpy()
         # labels = Variable(torch.LongTensor(batch['label']).cuda())
         
-        x = model.features(data)
-        _,routes = model.caps.forward_intrusive(x)
+        if not au:
+            x = model.features(data)
+            _,routes = model.caps.forward_intrusive(x)
+        else:
+            x = model.vgg_base(data)
+            x = model.features[0](x)
+            _,routes = model.features[1].forward_intrusive(x)
+        
         routes = [np.squeeze(routes_curr) for routes_curr in routes]
         print len(routes), routes[0].shape
-
+        # raw_input()
 
         # output, caps = 
         classes,reconstructions_gt,_,caps = model(data, labels, return_caps = True)
         classes, reconstructions_gt, caps = [val.data.cpu().numpy() for val in [classes, reconstructions_gt,caps]]
         labels = labels.data.cpu().numpy()
         
-        preds = np.argmax(classes,1)
+
+        if not au:
+            preds = np.argmax(classes,1)
+        else:
+            preds = classes
+            preds[preds<=0.5]=0
+            preds[preds>0.5]=1
+
         print preds.shape, labels.shape
         print np.sum(preds==labels)/float(labels.size)
+        
 
         batch_size = data.shape[0]
 
@@ -197,17 +212,17 @@ def save_routings(out_dir_train,
             # print len(ims_all)
             # print len(ims_all[0])
             # raw_input()
-        break
+        # break
     
     # mats_to_save = []
-    mats_to_save = [labels,preds,routes[0],routes[1]]
-    mats_names = ['labels','preds','routes_0','routes_1']
-    for mat_curr, file_curr in zip(mats_to_save,mats_names):
-        out_file_curr = os.path.join(out_dir_results,file_curr+'.npy')
-        np.save(out_file_curr,mat_curr)
+        mats_to_save = [labels,preds,routes[0],routes[1]]
+        mats_names = ['labels_'+str(num_iter),'preds_'+str(num_iter),'routes_0_'+str(num_iter),'routes_1_'+str(num_iter)]
+        for mat_curr, file_curr in zip(mats_to_save,mats_names):
+            out_file_curr = os.path.join(out_dir_results,file_curr+'.npy')
+            np.save(out_file_curr,mat_curr)
 
-    np.save(os.path.join(out_dir_results,'ims_all.npy'),np.array(ims_all))
-        
+        np.save(os.path.join(out_dir_results,'ims_all_'+str(num_iter)+'.npy'),np.array(ims_all))
+    return num_iter
 
 
 def save_recon_variants(out_dir_train,
@@ -420,6 +435,7 @@ def save_class_vary_mag(out_dir_train,
                 network_params = None,
                 barebones = True,
                 class_rel = 0,
+                au = False
                 ):
     
     mag_range = np.arange(0.1,1.0,0.1)
@@ -459,8 +475,9 @@ def save_class_vary_mag(out_dir_train,
     mean_im = mean_im[np.newaxis,:,:]
     std_im = test_data.std[np.newaxis,:,:]
 
-
+    ims_all = []
     for num_iter,batch in enumerate(test_dataloader):
+        print 'NUM ITER', num_iter
         
         # labels = batch['label'].cpu().numpy()
         # data = batch['image'].cpu().numpy()
@@ -483,7 +500,7 @@ def save_class_vary_mag(out_dir_train,
 
         data = Variable(batch['image'].cuda())
 
-        recons_all[(0,0)] = data.data.cpu().numpy()
+        # recons_all[(0,0)] = data.data.cpu().numpy()
         # labels = Variable(torch.LongTensor(batch['label']).cuda())
         
         # x = model.features(data)
@@ -527,7 +544,7 @@ def save_class_vary_mag(out_dir_train,
         data = data.data.cpu().numpy()
 
 
-        ims_all = []
+        
         for im_num in range(batch_size):
             post_pend = []
             im_out = []
@@ -563,14 +580,15 @@ def save_class_vary_mag(out_dir_train,
                 post_pend.append([label_curr])
 
 
-            pre_vals = [im_num,gt_label,pred_label]
+            pre_vals = [num_iter,im_num]
+            # ,gt_label,pred_label]
             ims_row = save_all_im(out_dir_im,pre_vals,im_out,post_pend)
             ims_all.append(ims_row)
             # print ims_all
             # print len(ims_all)
             # print len(ims_all[0])
             # raw_input()
-        break
+        # break
     
     # mats_to_save = []
     # mats_to_save = [labels,preds,routes[0],routes[1]]
@@ -769,12 +787,13 @@ def save_class_vary_attr(out_dir_train,
                 network_params = None,
                 barebones = True,
                 class_rel = 0,
+                au = False
                 ):
     
     mag_range = np.arange(-0.5,0.6,0.1)
-    out_dir_results = os.path.join(out_dir_train,'save_class_vary_attr_single_batch_'+str(model_num))
+    out_dir_results = os.path.join(out_dir_train,'save_class_vary_attr_single_batch_'+str(model_num)+'_'+str(class_rel))
     util.makedirs(out_dir_results)
-    out_dir_im = os.path.join(out_dir_results,'im_save')
+    out_dir_im = os.path.join(out_dir_results,'im_save_'+str(class_rel))
     util.mkdir(out_dir_im)
 
     print out_dir_results
@@ -808,19 +827,32 @@ def save_class_vary_attr(out_dir_train,
     mean_im = mean_im[np.newaxis,:,:]
     std_im = test_data.std[np.newaxis,:,:]
 
-
+    ims_all = []
     for num_iter,batch in enumerate(test_dataloader):
+        print 'NUM_ITER',num_iter
         
         labels = batch['label'].cpu().numpy()
         data = batch['image'].cpu().numpy()
-        rel_vals = labels==class_rel
-        labels = labels[rel_vals]
+        if au:
+            print labels.shape
+            rel_vals = labels[:,class_rel]>0
+            print np.sum(rel_vals)
+            labels = np.zeros((np.sum(rel_vals),labels.shape[1]))
+            labels[:,class_rel]=1
+            print labels.shape
+            print rel_vals.shape
+            
+        else:
+            rel_vals = labels==class_rel
+            labels = labels[rel_vals]
         data = data[rel_vals]
         batch['image'] = torch.Tensor(data)
         batch['label'] = torch.LongTensor(labels)
         print labels.shape
         print data.shape
-
+        
+        if data.shape[0]==1:
+            continue
         # raw_input()
 
         # batch = test_dataloader.next() 
@@ -832,7 +864,7 @@ def save_class_vary_attr(out_dir_train,
 
         data = Variable(batch['image'].cuda())
 
-        recons_all[(0,0)] = data.data.cpu().numpy()
+        # recons_all[(0,0)] = data.data.cpu().numpy()
         # labels = Variable(torch.LongTensor(batch['label']).cuda())
         
         # x = model.features(data)
@@ -888,7 +920,7 @@ def save_class_vary_attr(out_dir_train,
 
 
         # ims_all_all = [[] for i in range(8)]
-        ims_all = []
+        # ims_all = []
         for im_num in range(batch_size):
             for attr_num in range(32):
                 post_pend = []
@@ -934,7 +966,8 @@ def save_class_vary_attr(out_dir_train,
                     post_pend.append([attr_num,idx_mag_curr])
 
 
-                pre_vals = [im_num,gt_label,pred_label]
+                # pre_vals = [im_num,gt_label,pred_label]
+                pre_vals = [num_iter,im_num]
                 ims_row = save_all_im(out_dir_im,pre_vals,im_out,post_pend)
                 ims_all.append(ims_row)
             # print ims_all
@@ -951,3 +984,205 @@ def save_class_vary_attr(out_dir_train,
     #     np.save(out_file_curr,mat_curr)
 
     np.save(os.path.join(out_dir_results,'ims_all.npy'),np.array(ims_all))
+
+
+def save_class_vary_mag_class_rel(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                gpu_id = 0,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss(),
+                margin_params = None,
+                network_params = None,
+                barebones = True,
+                class_rel = 0,
+                au = False
+                ):
+    
+    mag_range = np.arange(0.1,1.0,0.1)
+    out_dir_results = os.path.join(out_dir_train,'save_class_vary_mag_single_batch_'+str(model_num)+'_'+str(class_rel))
+    util.makedirs(out_dir_results)
+    out_dir_im = os.path.join(out_dir_results,'im_save_'+str(class_rel))
+    util.mkdir(out_dir_im)
+
+    print out_dir_results
+    
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_arr=[]
+
+    # network = models.get(model_name,network_params)
+    
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+    
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=1)
+
+    torch.cuda.device(0)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
+    
+    predictions = []
+    labels_all = []
+    out_all = []
+    caps_all = []
+    recons_all = {}
+
+    mean_im = test_data.mean
+    
+    mean_im = mean_im[np.newaxis,:,:]
+    std_im = test_data.std[np.newaxis,:,:]
+
+    ims_all = []
+    for num_iter,batch in enumerate(test_dataloader):
+        print 'NUM_ITER',num_iter
+        
+        labels = batch['label'].cpu().numpy()
+        data = batch['image'].cpu().numpy()
+        if au:
+            print labels.shape
+            rel_vals = labels[:,class_rel]>0
+            print np.sum(rel_vals)
+            labels = np.zeros((np.sum(rel_vals),labels.shape[1]))
+            labels[:,class_rel]=1
+            print labels.shape
+            print rel_vals.shape
+            
+        else:
+            rel_vals = labels==class_rel
+            labels = labels[rel_vals]
+        data = data[rel_vals]
+        batch['image'] = torch.Tensor(data)
+        batch['label'] = torch.LongTensor(labels)
+        print labels.shape
+        print data.shape
+        
+        if data.shape[0]==1:
+            continue
+        
+        # labels = batch['label'].cpu().numpy()
+        # data = batch['image'].cpu().numpy()
+        # rel_vals = labels==class_rel
+        # labels = labels[rel_vals]
+        # data = data[rel_vals]
+        # batch['image'] = torch.Tensor(data)
+        # batch['label'] = torch.LongTensor(labels)
+        # print labels.shape
+        # print data.shape
+
+        # raw_input()
+
+        # batch = test_dataloader.next() 
+        if criterion=='marginmulti':
+            labels = Variable(batch['label'].float().cuda())
+        else:
+            labels = Variable(torch.LongTensor(batch['label']).cuda())
+        # labels_all.append(batch['label'].numpy())
+
+        data = Variable(batch['image'].cuda())
+
+        # recons_all[(0,0)] = data.data.cpu().numpy()
+        # labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+        # x = model.features(data)
+        # _,routes = model.caps.forward_intrusive(x)
+        # routes = [np.squeeze(routes_curr) for routes_curr in routes]
+        # print len(routes), routes[0].shape
+
+
+        # output, caps = 
+        classes,reconstructions_gt,_,caps = model(data, labels, return_caps = True)
+        
+        caps_mag = (caps ** 2).sum(dim=-1) ** 0.5
+        caps_unit = caps/caps_mag.view(caps_mag.size(0),caps_mag.size(1),1)
+
+        recons_all = []
+        for mag_curr in mag_range:
+            # labels_temp = np.ones((caps.size(0),))*class_curr
+            # labels_temp = Variable(torch.LongTensor(labels_temp).cuda())
+            recon_curr = model.just_reconstruct(caps_unit*mag_curr,labels)
+            # print recon_curr.size()
+            recons_all.append(recon_curr)
+
+        # print caps.size()
+        # raw_input()
+        classes, reconstructions_gt, caps = [val.data.cpu().numpy() for val in [classes, reconstructions_gt,caps]]
+
+        recons_all = [val.data.cpu().numpy() for val in recons_all]
+
+
+
+
+
+        labels = labels.data.cpu().numpy()
+        
+        preds = np.argmax(classes,1)
+        # print preds.shape, labels.shape
+        # print np.sum(preds==labels)/float(labels.size)
+
+        batch_size = data.shape[0]
+
+        data = data.data.cpu().numpy()
+
+
+        
+        for im_num in range(batch_size):
+            post_pend = []
+            im_out = []
+
+            gt_label = labels[im_num]
+            pred_label = preds[im_num]
+            # print 'gt',gt_label,'pred',pred_label
+            im_in = data[im_num]
+            # [0]
+            # print im_in.shape
+            # raw_input()
+            im_in = (im_in*std_im)+mean_im
+            # print im_in.shape
+            im_out.append(im_in)
+            post_pend.append(['org'])
+
+            # recon_gt = reconstructions_gt[im_num]
+            # # [0]
+            # recon_gt = (recon_gt*std_im)+mean_im
+            # # print recon_gt.shape
+            # im_out.append(recon_gt)
+            # post_pend.append(['recon_gt'])
+            # routes_im = [np.sum(route[:,im_num,:,:],2) for route in routes]
+            # # for val in im_out:
+            # #     print val.shape
+            
+            for label_curr in range(len(recons_all)):
+                recon_rel = np.array(recons_all[label_curr][im_num])
+                recon_rel = (recon_rel*std_im)+mean_im
+                # recon_rel = recon_rel+np.min(recon_rel)
+                # recon_rel = recon_rel/np.max(recon_rel)
+                im_out.append(recon_rel)
+                post_pend.append([label_curr])
+
+
+            pre_vals = [num_iter,im_num]
+            # ,gt_label,pred_label]
+            ims_row = save_all_im(out_dir_im,pre_vals,im_out,post_pend)
+            ims_all.append(ims_row)
+            # print ims_all
+            # print len(ims_all)
+            # print len(ims_all[0])
+            # raw_input()
+        # break
+    
+    # mats_to_save = []
+    # mats_to_save = [labels,preds,routes[0],routes[1]]
+    # mats_names = ['labels','preds','routes_0','routes_1']
+    # for mat_curr, file_curr in zip(mats_to_save,mats_names):
+    #     out_file_curr = os.path.join(out_dir_results,file_curr+'.npy')
+    #     np.save(out_file_curr,mat_curr)
+
+    np.save(os.path.join(out_dir_results,'ims_all.npy'),np.array(ims_all))
+
+

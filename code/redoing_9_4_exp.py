@@ -261,7 +261,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            continue 
+            # continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -381,7 +381,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
 
             
         if reconstruct:
-            train_model_recon(**train_params)
+            # train_model_recon(**train_params)
             test_model_recon(**test_params)
             # test_model_recon(**test_params_train)
 
@@ -561,25 +561,25 @@ def main():
 
 
 
-    # return
-    # mmi_experiment()
+    # # return
+    # # mmi_experiment()
 
-    # return
-    # 500 ck big class
-    folds = range(0,10)
-    # [0,1,3,4,5,6,7,8,2]
+    # # return
+    # # 500 ck big class
+    # folds = range(0,10)
+    # # [0,1,3,4,5,6,7,8,2]
     
-    epoch_stuff = [350,600]
-    # [600,600]
-    lr = [0.001,0.001,0.001]
-    # res = True
-    route_iter = 3
+    # epoch_stuff = [350,600]
+    # # [600,600]
+    # lr = [0.001,0.001,0.001]
+    # # res = True
+    # route_iter = 3
 
-    # for model_to_test in range(0,600,30)+[599]:
-    model_to_test = None
-    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = False,model_to_test = model_to_test )
+    # # for model_to_test in range(0,600,30)+[599]:
+    # model_to_test = None
+    # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = False,model_to_test = model_to_test )
 
-    return
+    # return
 
 
 
@@ -593,7 +593,8 @@ def main():
     # res = True
     route_iter = 3
 
-    for model_to_test in range(0,300,50)+[299]:
+    for model_to_test in [299]:
+    # range(0,300,50)+:
         train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = True,model_to_test = model_to_test )
 
 

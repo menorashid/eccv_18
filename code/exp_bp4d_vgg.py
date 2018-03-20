@@ -80,7 +80,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            continue 
+            # continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -555,7 +555,7 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
         # if reconstruct:
 
         # train_model_recon(**train_params)
-        # test_model_recon(**test_params)
+        test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -576,13 +576,13 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
 
 
 def train_disfa_ft():
-    folds = [0,1,2]
+    folds = [0,1]
     # [0,1]
     # range(3)
     model_name = 'khorrami_capsule_7_3_gray'
     disfa = True
     epoch_stuff = [350,10]
-    lr = [0,0.001,0.001]
+    lr = [0.0001,0.001,0.001]
     route_iter = 3
 
     vgg_base_file = '../experiments/khorrami_capsule_7_3_gray3/bp4d_train_test_files_110_gray_align_0_reconstruct_True_True_flipCrop_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0/model_2.pt'
@@ -601,16 +601,16 @@ def train_disfa_ft():
 
 def main():
     
-    # train_disfa_ft()
-    # return
+    train_disfa_ft()
+    return
 
 
-    epoch_stuff = [350,5]
+    epoch_stuff = [350,1]
     lr = [0.0001,0.001,0.001]
     route_iter = 3
-    folds = [1]
-    model_name = 'vgg_capsule_7_3_smallrecon'
-    disfa = False
+    folds = [0,1,2]
+    model_name = 'vgg_capsule_7_3'
+    disfa = True
     loss_weights = [1.,0.1]
     # align = True
 
