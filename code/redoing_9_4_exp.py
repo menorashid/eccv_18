@@ -180,19 +180,19 @@ def train_khorrami_aug_mmi(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_caps
 
 
             
-        if reconstruct:
+        # if reconstruct:
             # train_model_recon(**train_params)
-            test_model_recon(**test_params)
-            test_model_recon(**test_params_train)
-        else:
-            train_model(**train_params)
-            test_model(**test_params)
+        test_model_recon(**test_params)
+        test_model_recon(**test_params_train)
+        # else:
+        #     train_model(**train_params)
+        #     test_model(**test_params)
 
         
     getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
     getting_accuracy.view_loss_curves(out_dir_meta,pre_pend,strs_append,folds,num_epochs-1)
 
-def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, oulu = False, meta_data_dir = None,loss_weights = None, exp = False, non_peak = False, model_to_test = None):
+def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, oulu = False, meta_data_dir = None,loss_weights = None, exp = False, non_peak = False, model_to_test = None, dropout = None):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
@@ -210,7 +210,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     lr = lr
     im_resize = 110
     im_size = 96
-    save_after = 30
+    save_after = 100
     if non_peak:
         type_data = 'train_test_files_non_peak_one_third'; n_classes = 8;
         train_pre = os.path.join('../data/ck_96',type_data)
@@ -229,7 +229,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     # criterion_str = 'crossentropy'
     
     init = False
-    strs_append_list = ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr
+    strs_append_list = ['reconstruct',reconstruct,class_weights,'no_pix',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['dropout',dropout]
 
     if loss_weights is not None:
         strs_append_list = strs_append_list     +['lossweights']+loss_weights
@@ -261,7 +261,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            # continue 
+            continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -296,7 +296,8 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         # print np.min(std_im),np.max(std_im)
         # raw_input()
 
-        list_of_to_dos = ['flip','rotate','scale_translate', 'pixel_augment']
+        list_of_to_dos = ['flip','rotate','scale_translate']
+        # , 'pixel_augment']
         
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
@@ -322,7 +323,10 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         train_data_no_t = dataset.CK_96_Dataset(test_file_easy, mean_file, std_file, data_transforms['val'])
         test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
         
-        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights)
+        if dropout is not None:
+            network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights, dropout = dropout)
+        else:    
+            network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights)
         # if lr[0]==0:
         batch_size = 128
         batch_size_val = 128
@@ -379,15 +383,13 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         util.writeFile(param_file,all_lines)
 
 
-            
-        if reconstruct:
-            # train_model_recon(**train_params)
-            test_model_recon(**test_params)
-            # test_model_recon(**test_params_train)
+       # if reconstruct:
+        train_model_recon(**train_params)
+        # test_model_recon(**test_params)
+        # else:
+        #     train_model(**train_params)
+        #     test_model(**test_params)
 
-        else:
-            train_model(**train_params)
-            test_model(**test_params)
 
         
     getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
@@ -537,11 +539,12 @@ def mmi_experiment():
     epoch_stuff = [350,300]
     lr = [0.001,0.001,0.001]
     route_iter = 3
-    loss_weights = [1.,100.]
+    loss_weights =None
+     # [1.,100.]
     model_to_test = 100
     for model_to_test in [299]:
     # range(0,300,10):
-        train_khorrami_aug_mmi(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = True,model_to_test = model_to_test,loss_weights = loss_weights)
+        train_khorrami_aug_mmi(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, exp = True, non_peak = True,model_to_test = model_to_test,loss_weights = loss_weights)
             # raw_input()
 
 def hack():
@@ -566,20 +569,23 @@ def main():
 
     # # return
     # # 500 ck big class
-    # folds = range(0,10)
+    folds = range(0,10)
     # # [0,1,3,4,5,6,7,8,2]
     
-    # epoch_stuff = [350,600]
-    # # [600,600]
-    # lr = [0.001,0.001,0.001]
-    # # res = True
-    # route_iter = 3
+    epoch_stuff = [1000,1000]
+    # [350,600]
+    # [600,600]
+    lr = [0.001,0.001,0.001]
+    # res = True
+    route_iter = 3
+    dropout = 0
+    # for model_to_test in range(0,600,30)+[599]:
+    model_to_test = None
+    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass_with_dropout', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, exp = False, non_peak = False,model_to_test = model_to_test, dropout = dropout )
 
-    # # for model_to_test in range(0,600,30)+[599]:
-    # model_to_test = None
-    # train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, exp = True, non_peak = False,model_to_test = model_to_test )
 
-    # return
+
+    return
 
 
 

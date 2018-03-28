@@ -11,7 +11,7 @@ import torch
 from analysis import getting_accuracy
 from helpers import util,visualize,augmenters
 
-def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False,loss_weights = None,model_to_test = None,oulu = False):
+def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False,loss_weights = None,model_to_test = None,oulu = False, dropout = 0):
     
     out_dirs = []
     out_dir_meta = '../experiments/showing_overfitting_justhflip_'+model_name+str(route_iter)
@@ -42,7 +42,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     criterion_str = criterion
 
     init = False
-    strs_append_list = ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr
+    strs_append_list = ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+[dropout]
 
     if loss_weights is not None:
         strs_append_list = strs_append_list     +['lossweights']+loss_weights
@@ -92,7 +92,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         train_data = dataset.CK_96_Dataset(train_file, mean_file, std_file, data_transforms['train'])
         test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
         
-        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights)
+        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights, dropout = dropout)
         
         batch_size = 128
         batch_size_val = None
@@ -153,45 +153,45 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
 
 def main():
     
-    lr = [0.001,0.001]
-    route_iter = 1
-    folds = [9]
-    model_name = 'khorrami_capsule_7_3'
-    epoch_stuff = [600,600]
-    wdecay = 0
-    reconstruct = False
+    # lr = [0.001,0.001]
+    # route_iter = 1
+    # folds = [9]
+    # model_name = 'khorrami_capsule_7_3'
+    # epoch_stuff = [600,600]
+    # wdecay = 0
+    # reconstruct = False
     oulu = True
-    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu)
+    # train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu)
     
     lr = [0.001,0.001]
     route_iter = 3
     folds = [9]
-    model_name = 'khorrami_capsule_7_3'
+    model_name = 'khorrami_capsule_7_3_with_dropout'
     epoch_stuff = [600,600]
     wdecay = 0
     reconstruct = False
-    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu)
+    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, dropout = 0.5)
 
 
-    lr = [0.001,0.001,0.001]
-    route_iter = 3
-    folds = [9]
-    model_name = 'khorrami_capsule_7_3'
-    epoch_stuff = [600,600]
-    wdecay = 0
-    reconstruct = True
-    loss_weights = [1.,1.]
-    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
+    # lr = [0.001,0.001,0.001]
+    # route_iter = 3
+    # folds = [9]
+    # model_name = 'khorrami_capsule_7_3'
+    # epoch_stuff = [600,600]
+    # wdecay = 0
+    # reconstruct = True
+    # loss_weights = [1.,1.]
+    # train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
 
-    lr = [0.001,0.001,0.001]
-    route_iter = 3
-    folds = [9]
-    model_name = 'khorrami_capsule_7_3'
-    epoch_stuff = [600,600]
-    wdecay = 0
-    reconstruct = True
-    loss_weights = [1.,100.]
-    train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
+    # lr = [0.001,0.001,0.001]
+    # route_iter = 3
+    # folds = [9]
+    # model_name = 'khorrami_capsule_7_3'
+    # epoch_stuff = [600,600]
+    # wdecay = 0
+    # reconstruct = True
+    # loss_weights = [1.,100.]
+    # train_khorrami_aug(wdecay,lr,route_iter,folds,model_name=model_name,epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = reconstruct, oulu = oulu, loss_weights = loss_weights)
 
     # folds = range(1,10)
 

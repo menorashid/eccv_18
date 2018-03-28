@@ -150,7 +150,7 @@ class Dynamic_Capsule_Model_Super(nn.Module):
             return total_loss, margin_loss, reconstruction_loss
         else:
             total_loss = margin_loss
-            return total_loss
+            return total_loss, margin_loss, margin_loss
         
 
     def margin_loss_multi(self,  classes, labels, labels_au, bin_au):

@@ -13,7 +13,7 @@ from analysis import getting_accuracy
 import save_visualizations
 
 
-def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False):
+def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False, dropout = None):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
@@ -55,7 +55,10 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
 
     init = False
 
-    strs_append = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['lossweights']+loss_weights+[more_aug]])
+    strs_append_list = ['reconstruct',reconstruct,class_weights,'all_aug',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+[more_aug]+[dropout]
+    if loss_weights is not None:
+        strs_append_list = strs_append_list     +['lossweights']+loss_weights
+    strs_append = '_'+'_'.join([str(val) for val in strs_append_list])
     
     
     
@@ -144,9 +147,12 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
             test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
             
-        
-        network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights,std_div = std_div)
-        
+        if dropout is not None:
+            print 'RECONS',reconstruct
+            network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights,std_div = std_div, dropout = dropout)
+        else:
+            network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights,std_div = std_div)
+            
         batch_size = 32
         batch_size_val = 32
         
@@ -199,7 +205,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         # if reconstruct:
         train_model_recon(**train_params)
 
-        test_model_recon(**test_params)
+        # test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -601,20 +607,23 @@ def train_disfa_ft():
 
 def main():
     
-    train_disfa_ft()
-    return
+    # train_disfa_ft()
+    # return
 
 
-    epoch_stuff = [350,1]
+    epoch_stuff = [15,15]
     lr = [0.0001,0.001,0.001]
     route_iter = 3
-    folds = [0,1,2]
-    model_name = 'vgg_capsule_7_3'
-    disfa = True
-    loss_weights = [1.,0.1]
+    folds = [0]
+    # ,1,2]
+    model_name = 'vgg_capsule_7_3_with_dropout'
+    disfa = False
+    loss_weights = None
+    # [1.,0.1]
+    dropout = 0.5
     # align = True
 
-    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = loss_weights, exp = True, align = True, disfa = disfa, more_aug = True)
+    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, loss_weights = loss_weights, exp = False, align = True, disfa = disfa, more_aug = True, dropout = dropout)
 
     return
 

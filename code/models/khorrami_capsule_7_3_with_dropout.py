@@ -12,7 +12,7 @@ import math
 
 class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None, dropout = 0):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
@@ -41,13 +41,14 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
         elif pool_type=='avg':
             self.features.append(nn.AvgPool2d(2,2))
         
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
+        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r, dropout = 0))
         
         
         self.features = nn.Sequential(*self.features)
         
         
-        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r)
+        # self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r)
+        self.caps = CapsuleLayer(n_classes, 32, 8, 16, kernel_size=6, stride=1, num_iterations=r, dropout = dropout)
             
         if self.reconstruct:
             self.reconstruction_loss = nn.MSELoss(size_average=False)
@@ -93,9 +94,9 @@ class Khorrami_Capsule(Dynamic_Capsule_Model_Super):
                 return classes
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None, dropout = 0):
         # print 'BN',bn
-        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights)
+        model = Khorrami_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights, dropout = dropout)
 
         if init:
             for idx_m,m in enumerate(model.features):

@@ -30,6 +30,7 @@ def overfitting():
 	dir_r3_lw_eq = 'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001_lossweights_1.0_1.0'
 	dir_r3_lw_b = 'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001_lossweights_1.0_100.0'
 
+	dir_r3_do = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_3_with_dropout3/oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.5'
 
 
 	dirs_to_pend = [dir_r3,dir_r3_lw_eq,dir_r3_lw_b]
@@ -43,14 +44,15 @@ def overfitting():
 		dir_curr = os.path.join(dir_meta, dir_curr)
 		dirs.append(dir_curr)
 
+	dirs.append(dir_r3_do)
 
 	window = 10
 	val_lim = 600
 	epoch_range = range(window-1,val_lim)
 	
-	out_file = os.path.join(out_dir,'val_accuracy_9.png')
+	out_file = os.path.join(out_dir,'val_accuracy_9_do.png')
 	xAndYs = []
-	legend_entries = ['R3+0','R3+1e-7','R3+1e-5']
+	legend_entries = ['R3+0','R3+1e-7','R3+1e-5','R3+DO']
 	for dir_curr in dirs:
 		log_file_curr = os.path.join(dir_curr,'log.txt')
 		val_losses = [line_curr for line_curr in util.readLinesFromFile(log_file_curr) if 'val accuracy' in line_curr]
@@ -61,7 +63,7 @@ def overfitting():
 		val_losses = np.convolve(val_losses, np.ones((window,))/window, mode='valid')
 
 		xAndYs.append((epoch_range,val_losses))
-	visualize.plotSimple(xAndYs,out_file=out_file,xlabel='Epoch',ylabel='Validation Accuracy',legend_entries= legend_entries,ylim=[0.6,0.77],outside=True)
+	visualize.plotSimple(xAndYs,out_file=out_file,xlabel='Epoch',ylabel='Validation Accuracy',legend_entries= legend_entries,ylim=[0.6,0.8],outside=True)
 
 def collate_labels(dir_curr,num_it = False):
 	if num_it:
