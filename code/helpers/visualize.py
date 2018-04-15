@@ -3,7 +3,7 @@ import numpy as np;
 matplotlib.use('Agg')
 # matplotlib.use('PS') 
 import matplotlib.pyplot as plt;
-matplotlib.rcParams.update({'font.size': 22})
+# matplotlib.rcParams.update({'font.size': 22})
 from matplotlib.backends.backend_pdf import PdfPages
 import os;
 from PIL import Image,ImageDraw,ImageFont;

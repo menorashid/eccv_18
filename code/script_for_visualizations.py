@@ -472,7 +472,7 @@ def get_class_variations(model_name, route_iter, pre_pend, strs_append, split_nu
         test_file = os.path.join(train_pre,'test_'+str(split_num)+'.txt')
     else:
         test_file = os.path.join(train_pre,test_file)
-        
+    
     mean_file = os.path.join(train_pre,'train_'+str(split_num)+'_mean.png')
     std_file = os.path.join(train_pre,'train_'+str(split_num)+'_std.png')
     data_transforms = {}
@@ -528,6 +528,8 @@ def get_class_variations(model_name, route_iter, pre_pend, strs_append, split_nu
         out_file_html = os.path.join(out_file_results,'visualizing_vary_mag_'+str(class_rel)+'.html')
         # os.path.join('../scratch/ck_test','save_routings_single_batch_'+str(model_num))
 
+
+    return
     im_files = np.load(os.path.join(out_file_results,'ims_all.npy'))
     captions = np.array(im_files)
 
@@ -556,10 +558,55 @@ def get_class_variations(model_name, route_iter, pre_pend, strs_append, split_nu
     print out_file_html.replace(str_replace[0],str_replace[1]).replace(dir_server,click_str)
 
 
+
+def script_visualizing_primary_caps():
+    model_name = 'khorrami_capsule_7_3_bigclass'
+    route_iter = 3
+    pre_pend = 'ck_96_train_test_files_'
+    strs_append = '_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_exp_0.96_350_1e-06_0.001_0.001_0.001'
+    model_num = 599
+    split_num = 4
+    
+    out_dir_meta = os.path.join('../experiments',model_name+str(route_iter))
+    out_dir_train =  os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append)
+    train_pre =  os.path.join('../data/ck_96','train_test_files')
+    test_file =  os.path.join(train_pre,'train_'+str(split_num)+'.txt')
+    
+    mean_file = os.path.join(train_pre,'train_'+str(split_num)+'_mean.png')
+    std_file = os.path.join(train_pre,'train_'+str(split_num)+'_std.png')
+    data_transforms = {}
+    data_transforms['val']= transforms.Compose([
+            transforms.ToTensor(),
+            lambda x: x*255.
+            ])
+
+    test_data = dataset.CK_96_Dataset(test_file, mean_file, std_file, data_transforms['val'])
+    au = False
+    class_rel = 0
+    criterion = 'margin'
+    test_params = dict(out_dir_train = out_dir_train,
+                    model_num = model_num,
+                    train_data = None,
+                    test_data = test_data,
+                    gpu_id = 0,
+                    model_name = model_name,
+                    batch_size_val = 128,
+                    criterion = criterion,
+                    au=au,
+                    class_rel = class_rel
+                    )
+
+
+    save_visualizations.save_primary_caps(**test_params)
+
+
 def main():
     # get_entropy_map()
-    get_entropy_table()
+    # get_entropy_table()
     # load_mats_au()
+
+    script_visualizing_primary_caps()
+
     return
 
     model_name = 'khorrami_capsule_7_3_gray'

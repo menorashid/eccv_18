@@ -13,11 +13,17 @@ from analysis import getting_accuracy
 import save_visualizations
 
 
-def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False, dropout = None):
+def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False, dropout = None, model_to_test = None, gpu_id = 0):
     out_dirs = []
+
+    
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
     num_epochs = epoch_stuff[1]
+
+    if model_to_test is None:
+        model_to_test = num_epochs-1
+
     epoch_start = 0
     if exp:
         dec_after = ['exp',0.96,epoch_stuff[0],1e-6]
@@ -80,10 +86,11 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         out_dir_train =  os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append)
         final_model_file = os.path.join(out_dir_train,'model_'+str(num_epochs-1)+'.pt')
+        # final_model_file = os.path.join(out_dir_train,'results_model_'+str(model_to_test))
         if os.path.exists(final_model_file):
             print 'skipping',final_model_file
             # raw_input()
-            # continue 
+            continue 
         else:
             print 'not skipping', final_model_file
             # raw_input()
@@ -172,7 +179,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                     dec_after = dec_after, 
                     model_name = model_name,
                     criterion = criterion,
-                    gpu_id = 0,
+                    gpu_id = gpu_id,
                     num_workers = 0,
                     model_file = model_file,
                     epoch_start = epoch_start,
@@ -180,10 +187,10 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                     network_params = network_params,
                     weight_decay=wdecay)
         test_params = dict(out_dir_train = out_dir_train,
-                    model_num = num_epochs-1, 
+                    model_num = model_to_test, 
                     train_data = train_data,
                     test_data = test_data,
-                    gpu_id = 0,
+                    gpu_id = gpu_id,
                     model_name = model_name,
                     batch_size_val = batch_size_val,
                     criterion = criterion,
@@ -200,10 +207,10 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             str_print = '%s: %s' % (k,train_params[k])
             print str_print
             all_lines.append(str_print)
-        util.writeFile(param_file,all_lines)
+        # util.writeFile(param_file,all_lines)
 
         # if reconstruct:
-        train_model_recon(**train_params)
+        # train_model_recon(**train_params)
 
         # test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
@@ -611,19 +618,22 @@ def main():
     # return
 
 
-    epoch_stuff = [15,15]
+    epoch_stuff = [6,6]
     lr = [0.0001,0.001,0.001]
     route_iter = 3
-    folds = [0]
+    folds = [0,1,2]
     # ,1,2]
     model_name = 'vgg_capsule_7_3_with_dropout'
     disfa = False
     loss_weights = None
     # [1.,0.1]
-    dropout = 0.5
+    dropout = 0
     # align = True
+    models_to_test = range(6)
 
-    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, loss_weights = loss_weights, exp = False, align = True, disfa = disfa, more_aug = True, dropout = dropout)
+    # for idx_model_to_test, model_to_test in enumerate(models_to_test):
+        # gpu_id = idx_model_to_test
+    train_vgg(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, loss_weights = loss_weights, exp = False, align = True, disfa = disfa, more_aug = True, dropout = dropout, model_to_test = None, gpu_id = 0)
 
     return
 

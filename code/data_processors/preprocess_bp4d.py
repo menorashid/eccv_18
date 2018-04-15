@@ -13,6 +13,7 @@ import multiprocessing
 import dlib
 import cv2
 import shutil
+import skimage.transform
 
 def saveCroppedFace((in_file, out_file, im_size, savegray, idx_file_curr)):
     if idx_file_curr%100==0:
@@ -336,10 +337,6 @@ def make_au_vec_per_frame(csv_file):
         arr.append(arr_curr)
     
     return np.array(arr)
-
-
-
-
 
 def script_save_resize_faces():
     dir_meta= '../data/bp4d'
@@ -856,9 +853,12 @@ def save_align_mp((args)):
         im_curr, out_file_curr, idx_arg = arg
         if idx_arg%100==0:
             print idx_arg
-        pred = fa.get_landmarks(im_curr, False)    
-        if pred is not None:
-            np.save(out_file_curr,pred[0])
+        try:
+            pred = fa.get_landmarks(im_curr, False)    
+            if pred is not None:
+                np.save(out_file_curr,pred[0])
+        except:
+            pass
 
 
 def save_align_im_diff_scale((kp_in_file,im_org_file,avg_pts_file,out_file, out_scale,idx)):

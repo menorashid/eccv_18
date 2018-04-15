@@ -195,7 +195,7 @@ def train_khorrami_aug_mmi(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_caps
 def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_disfa',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, oulu = False, meta_data_dir = None,loss_weights = None, exp = False, non_peak = False, model_to_test = None, dropout = None):
     out_dirs = []
 
-    out_dir_meta = '../experiments/'+model_name+str(route_iter)
+    out_dir_meta = '../experiments_dropout/'+model_name+str(route_iter)
     num_epochs = epoch_stuff[1]
     if model_to_test is None:
         model_to_test = num_epochs -1
@@ -229,7 +229,7 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
     # criterion_str = 'crossentropy'
     
     init = False
-    strs_append_list = ['reconstruct',reconstruct,class_weights,'no_pix',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['dropout',dropout]
+    strs_append_list = ['reconstruct',reconstruct,class_weights,'flip',criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['dropout',dropout]
 
     if loss_weights is not None:
         strs_append_list = strs_append_list     +['lossweights']+loss_weights
@@ -296,8 +296,8 @@ def train_khorrami_aug(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_
         # print np.min(std_im),np.max(std_im)
         # raw_input()
 
-        list_of_to_dos = ['flip','rotate','scale_translate']
-        # , 'pixel_augment']
+        list_of_to_dos = ['flip']
+        # ,'rotate','scale_translate', 'pixel_augment']
         
         data_transforms = {}
         data_transforms['train']= transforms.Compose([
@@ -569,19 +569,22 @@ def main():
 
     # # return
     # # 500 ck big class
-    folds = range(0,10)
+    folds = [4,9]
+    # range(0,10)
     # # [0,1,3,4,5,6,7,8,2]
     
-    epoch_stuff = [1000,1000]
+    epoch_stuff = [600,600]
+    # [1000,1000]
     # [350,600]
     # [600,600]
     lr = [0.001,0.001,0.001]
     # res = True
     route_iter = 3
-    dropout = 0
+    dropout = None
     # for model_to_test in range(0,600,30)+[599]:
     model_to_test = None
-    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass_with_dropout', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, exp = False, non_peak = False,model_to_test = model_to_test, dropout = dropout )
+    
+    train_khorrami_aug(0,lr=lr,route_iter = route_iter, folds= folds, model_name='khorrami_capsule_7_3_bigclass', epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = False, exp = False, non_peak = False,model_to_test = model_to_test, dropout = dropout )
 
 
 

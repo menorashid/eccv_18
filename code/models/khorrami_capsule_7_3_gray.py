@@ -13,7 +13,7 @@ import math
 
 class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
-    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None, vgg_base_file = None):
+    def __init__(self,n_classes,pool_type='max',r=3,class_weights=None, reconstruct = False, loss_weights = None, vgg_base_file = None, dropout = 0):
         super(Dynamic_Capsule_Model_Super, self).__init__()
         
         self.reconstruct = reconstruct 
@@ -45,8 +45,8 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
 
         self.features = []
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r))
+        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r, dropout = 0))
+        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r, dropout = dropout))
         self.features = nn.Sequential(*self.features)
         
             
@@ -173,9 +173,9 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
 
 class Network:
-    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None,vgg_base_file= None):
+    def __init__(self,n_classes=8,pool_type='max',r=3, init=False,class_weights = None,reconstruct = False,loss_weights = None,vgg_base_file= None, dropout = 0):
         # print 'BN',bn
-        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights,vgg_base_file)
+        model = Vgg_Capsule(n_classes,pool_type,r,class_weights,reconstruct,loss_weights,vgg_base_file, dropout = dropout)
 
         if init:
             for idx_m,m in enumerate(model.features):

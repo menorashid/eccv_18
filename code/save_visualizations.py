@@ -48,6 +48,92 @@ def save_all_im(out_dir_im,pre_vals,im_out,post_pend):
     return ims_row
     
 
+def save_primary_caps(out_dir_train,
+                model_num,
+                train_data,
+                test_data,
+                gpu_id = 0,
+                model_name = 'alexnet',
+                batch_size_val =None,
+                criterion = nn.CrossEntropyLoss(),
+                margin_params = None,
+                network_params = None,
+                barebones = True,
+                au=False,
+                class_rel = 0
+                ):
+    
+    mag_range = np.arange(-0.5,0.6,0.1)
+    out_dir_results = os.path.join(out_dir_train,'save_primary_caps_train_data_'+str(model_num))
+    util.makedirs(out_dir_results)
+    out_dir_im = os.path.join(out_dir_results,'im_save')
+    util.mkdir(out_dir_im)
+
+    print out_dir_results
+    
+    model_file = os.path.join(out_dir_train,'model_'+str(model_num)+'.pt')
+    log_arr=[]
+
+    # network = models.get(model_name,network_params)
+    
+    if batch_size_val is None:
+        batch_size_val = len(test_data)
+    
+
+    test_dataloader = torch.utils.data.DataLoader(test_data, batch_size=batch_size_val,
+                        shuffle=False, num_workers=1)
+
+    torch.cuda.device(0)
+    iter_begin = 0
+    model = torch.load(model_file)
+    model.cuda()
+    model.eval()
+    
+    # predictions = []
+    # labels_all = []
+    # out_all = []
+    # caps_all = []
+    # recons_all = {}
+
+    mean_im = test_data.mean
+    
+    mean_im = mean_im[np.newaxis,:,:]
+    std_im = test_data.std[np.newaxis,:,:]
+
+    for num_iter,batch in enumerate(test_dataloader):
+        print 'NUM ITER',num_iter
+
+        # batch = test_dataloader.next() 
+        if criterion=='marginmulti':
+            labels = Variable(batch['label'].float().cuda())
+        else:
+            labels = Variable(torch.LongTensor(batch['label']).cuda())
+        # labels_all.append(batch['label'].numpy())
+
+        data = Variable(batch['image'].cuda())
+
+        # recons_all[(0,0)] = data.data.cpu().numpy()
+        # labels = Variable(torch.LongTensor(batch['label']).cuda())
+        
+        x = model.features(data)
+        # print model
+        _,routes = model.caps.forward_intrusive(x)
+        x = x.data.cpu().numpy()
+        
+        # print x.shape
+        # print routes[1].shape
+        out_file_curr = os.path.join(out_dir_results,str(num_iter)+'.npy')
+        out_file_routes = os.path.join(out_dir_results,str(num_iter)+'_routes.npy')
+        print out_file_curr,out_file_routes
+        
+        np.save(out_file_curr,x)
+        np.save(out_file_routes,routes[1])
+        # print x.size()
+            
+        # break
+
+
+
 def save_routings(out_dir_train,
                 model_num,
                 train_data,

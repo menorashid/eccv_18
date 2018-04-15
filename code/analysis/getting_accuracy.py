@@ -53,7 +53,10 @@ def print_accuracy(dir_exp_meta,pre_split,post_split,range_splits,log='log.txt')
     str_print = [str(val) for val in str_print]
     for val in str_print:
         print val
-    out_file = os.path.join(dir_exp_meta,pre_split+post_split[1:]+'_results.txt')
+
+    fold_strs = '_'.join([str(val) for val in range_splits])
+    out_file = '_'.join([str(val) for val in [pre_split[:-1],post_split[1:]]+range_splits+['results.txt']])
+    out_file = os.path.join(dir_exp_meta,out_file)
     util.writeFile(out_file,str_print)
     print out_file
 

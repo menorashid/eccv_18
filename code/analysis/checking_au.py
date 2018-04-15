@@ -309,14 +309,51 @@ def get_ideal_train_test_file():
 		print '___'
 
 
+def get_auc(pred,gt):
 
+    # print pred.shape
+    # print gt.shape
+    # print pred
+    # print gt
+    # ap = []
+    # gt[gt>0]=1
+    # gt[gt<0]=0
+    # print pred
+    # print gt
+
+    pred[pred>0.5]=1
+    pred[pred<=0.5]=0
+    # print pred
+
+    ap = sklearn.metrics.f1_score(gt, pred,average='macro')
+
+    # for idx in range(gt.shape[1]):
+    #     ap = ap+[sklearn.metrics.average_precision_score(gt[:,idx], pred[:,idx])]
+    return ap
 
 def main():
+
+	out_dir_train = '../experiments/vgg_capsule_7_3_with_dropout3/bp4d_256_train_test_files_256_color_align_2_reconstruct_False_True_all_aug_marginmulti_False_wdecay_0_6_step_6_0.1_0.0001_0.001_0.001_True_0'
+	log_file = os.path.join(out_dir_train,'log.txt')
+	print log_file
+	print util.readLinesFromFile(log_file)
+	to_print = []
+	for model_test in range(6):
+		test_dir = os.path.join(out_dir_train,'results_model_'+str(model_test))
+		labels_all, predictions = collate_files([test_dir])
+		accuracy = get_auc(predictions,labels_all)
+		str_print = 'val accuracy: %.4f' %(accuracy)
+		print str_print
+		to_print.append(str_print)
+
+	util.writeFile(log_file,to_print)
+
+		
 
 	# get_ideal_train_test_file()
 
 	# return
-	script_print_f1_etc()
+	# script_print_f1_etc()
 	return
 
 	dir_data_meta = '../data/bp4d'

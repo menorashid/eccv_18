@@ -829,8 +829,9 @@ def train_model_recon(out_dir_train,
                         batch_size=batch_size_val,
                         shuffle=False, 
                         num_workers=num_workers)
-    
-    torch.cuda.device(gpu_id)
+    print 'GPU ID ',gpu_id
+    torch.cuda.set_device(gpu_id)
+    # cuda.device(gpu_id)
     
     model = model.cuda()
     model.train(True)
@@ -1387,14 +1388,16 @@ def test_model_recon(out_dir_train,
         else:
             labels = Variable(torch.LongTensor(batch['label']).cuda())
         
-        output = model(data, return_caps = True)
+        output = model(data, return_caps = False)
         # print output
         # print labels
         # raw_input()
+        # losses = model.margin_loss(output[0], labels) 
+        # losses = [loss_curr.data[0] for loss_curr in losses]
+        # loss_iter, margin_loss_iter, recon_loss_iter = losses
         losses = model.margin_loss(output, labels) 
         losses = [loss_curr.data[0] for loss_curr in losses]
         loss_iter, margin_loss_iter, recon_loss_iter = losses
-
         
         if isinstance(output, tuple):
             
@@ -1417,6 +1420,8 @@ def test_model_recon(out_dir_train,
         else:
             out = output.data.cpu().numpy()
         
+
+
         if len(labels.size())>1:
             predictions.append(out)
         else:

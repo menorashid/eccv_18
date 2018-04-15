@@ -12,6 +12,7 @@ def softmax(input, dim=1,arr_to_keep = None):
     transposed_input = input.transpose(dim, len(input.size()) - 1)
     # print 'transposed_input.size()',transposed_input.size()
     x = transposed_input.contiguous().view(-1, transposed_input.size(-1))
+    print 'x.size()',x.size()
     if arr_to_keep is not None:
         # print 'DROPPING softmax'
         softmaxed_output_temp = F.softmax(x[:,arr_to_keep])
@@ -77,7 +78,8 @@ class CapsuleLayer(nn.Module):
             assert x.shape[2]==x.shape[3]
             # x = x.permute(0,4,1,2,3).contiguous()
 
-            # print 'x.shape',x.shape
+            # print 'x.shape',x.size()
+            # print self.route_weights.size(-1)
             width_in = x.shape[2]
             w = width_out = int((width_in-self.kernel_size)/self.stride+1) if self.kernel_size else 1 #5
             # print 'w',w
@@ -85,6 +87,7 @@ class CapsuleLayer(nn.Module):
 
             num_in_routes = self.kernel_size*self.kernel_size*self.num_in_capsules
             arr_to_keep = None
+            print 'TRAINING',self.training
             if self.training and self.dropout>0:
                 arr_total = list(range(num_in_routes))
                 num_to_keep = np.clip(round(len(arr_total)*(1-self.dropout)),1,len(arr_total))
@@ -95,15 +98,9 @@ class CapsuleLayer(nn.Module):
                     arr_to_keep.sort()
                     arr_to_drop = [val for val in arr_total if val not in arr_to_keep]
                     arr_to_drop.sort()
-                    print len(arr_to_drop)
-                    print len(arr_to_keep)
+                    # print len(arr_to_drop)
+                    # print len(arr_to_keep)
 
-            print self.training
-            print num_in_routes
-            
-            print 'outputs.size',outputs.size()
-            print self.route_weights.size()
-            print self.bias.size()
             for row in range(w):  # Loop over every pixel of the output
                 for col in range(w):
                     col_start = col* self.stride
@@ -111,63 +108,23 @@ class CapsuleLayer(nn.Module):
                     row_start = row* self.stride
                     row_end = row*self.stride+self.kernel_size
                     window = x[:,:,row_start:row_end,col_start:col_end,:].contiguous()
-                    print 'windos.size()',window.size()
+                    # print 'windos.size()',window.size()
                     window = window.view(1,window.size(0),window.size(1)*window.size(2)*window.size(3),1,window.size(4))
-                    print 'window.size()',window.size()
+                    # print 'window.size()',window.size()
 
                     if arr_to_keep is not None:
-                        # print window[0,0,torch.LongTensor(arr_to_keep).cuda(),0,0]
-                        # print torch.LongTensor(arr_to_keep).cuda().size()
-                        print arr_to_keep
-
                         indexer = Variable(torch.LongTensor(arr_to_drop).cuda()).detach()
-                        print indexer
-                        print window[0,0,arr_to_keep[0],0,0]
-                        print window[0,0,0,0,0]
-                        
                         window = window.index_fill(2,indexer,0)
-                        print window[0,0,arr_to_keep[0],0,0]
-                        print window[0,0,0,0,0]
-                        raw_input()
-
+                        
 
                     priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
-                    # *0
-                    # print 'priors.size()',priors.size()
-                    # raw_input()
-
-                    # window = x[:,:,:,row_start:row_end,col_start:col_end]
-                    # print window.size()
-                    # window = window.view(window.size(0),window.size(1),window.size(2)*window.size(3)*window.size(4),1)
-                    # print window.size()
-                    # window = window.permute(0,1,3,2).contiguous()
-
-                    # priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
-
-                    # print x.size()
                     logits = Variable(torch.zeros(*priors.size())).cuda()
-                    # logits = Variable(torch.zeros(priors.size(0),priors.size(1),len(arr_to_keep),priors.size(3),priors.size(4))).cuda()
-                    print 'logits.size()',logits.size()
-                    print 'priors.size()',priors.size()
-
+                    
                     for i in range(self.num_iterations):
 
                         probs = softmax(logits, dim=2, arr_to_keep=  arr_to_keep)
-                        # print 'probs',torch.min(probs).data[0],torch.max(probs).data[0]
-                        
-                        
-                        # expand probs
-
-
-                        # print 'iter',i,probs.size(),torch.min(probs),torch.max(probs)
-                        
-                        # print 'bias.size()',bias.size()
-                        # t = 
-                        # print 't.size()',t.size()
-                        # raw_input()
                         mulled = probs * priors
-                        print 'mulled',torch.min(torch.abs(mulled)).data[0],torch.max(mulled).data[0]
-
+                    
                         outputs_temp = self.squash((mulled).sum(dim=2, keepdim=True)+self.bias[:,None,None,None,:])
 
                         if i != self.num_iterations - 1:
@@ -182,11 +139,8 @@ class CapsuleLayer(nn.Module):
         else:
             outputs = self.capsules(x)
             outputs = outputs.view(outputs.size(0),self.out_channels,self.num_capsules,outputs.size(2),outputs.size(3)).permute(0,2,3,4,1).contiguous()
-            # print outputs.shape
-            # print raw_input()
             outputs = self.squash(outputs,dim=-1)
 
-        # print outputs.shape
         return outputs,probs_all
 
 
@@ -215,15 +169,15 @@ class CapsuleLayer(nn.Module):
                     arr_to_keep.sort()
                     arr_to_drop = [val for val in arr_total if val not in arr_to_keep]
                     arr_to_drop.sort()
-                    # print len(arr_to_drop)
-                    # print len(arr_to_keep)
+                    print 'len(arr_to_drop)',len(arr_to_drop)
+                    print 'len(arr_to_keep)',len(arr_to_keep)
 
-            # print self.training
-            # print num_in_routes
+            print 'self.training',self.training
+            print 'num_in_routes',num_in_routes
             
-            # print 'outputs.size',outputs.size()
-            # print self.route_weights.size()
-            # print self.bias.size()
+            print 'outputs.size',outputs.size()
+            print 'self.route_weights.size()',self.route_weights.size()
+            print 'self.bias.size()',self.bias.size()
             for row in range(w):  # Loop over every pixel of the output
                 for col in range(w):
                     col_start = col* self.stride
@@ -269,12 +223,17 @@ class CapsuleLayer(nn.Module):
                     logits = Variable(torch.zeros(*priors.size())).cuda().detach()
                     # logits = Variable(torch.zeros(priors.size(0),priors.size(1),len(arr_to_keep),priors.size(3),priors.size(4))).cuda()
                     # print 'logits.size()',logits.size()
-                    # print 'priors.size()',priors.size()
+                    print 'priors.size()',priors.size()
+                    print 'priors.data[0,0,arr_to_keep[0],0,0]',priors.data[0,0,arr_to_keep[0],0,0]
+                    print 'priors.data[0,0,arr_to_drop[0],0,0]',priors.data[0,0,arr_to_drop[0],0,0]
 
                     for i in range(self.num_iterations):
-
+                        print 'iter',i
                         probs = softmax(logits, dim=2, arr_to_keep=  arr_to_keep)
-                        # print 'probs',torch.min(probs).data[0],torch.max(probs).data[0]
+                        print 'probs',probs.size()
+                        print 'probs.data[0,0,arr_to_keep[0],0,0]',probs.data[0,0,arr_to_keep[0],0,0]
+                        print 'probs.data[0,0,arr_to_drop[0],0,0]',probs.data[0,0,arr_to_drop[0],0,0]
+
                         
                         
                         # expand probs
@@ -287,25 +246,30 @@ class CapsuleLayer(nn.Module):
                         # print 't.size()',t.size()
                         # raw_input()
                         mulled = probs * priors
-                        # print 'mulled',torch.min(torch.abs(mulled)).data[0],torch.max(mulled).data[0]
-
+                        print 'mulled',mulled.size()
+                        print 'mulled.data[0,0,arr_to_keep[0],0,0]',mulled.data[0,0,arr_to_keep[0],0,0]
+                        print 'mulled.data[0,0,arr_to_drop[0],0,0]',mulled.data[0,0,arr_to_drop[0],0,0]
+ 
                         outputs_temp = self.squash((mulled).sum(dim=2, keepdim=True)+self.bias[:,None,None,None,:])
-
+                        print 'outputs_temp.size()',outputs_temp.size()
                         if i != self.num_iterations - 1:
                             delta_logits = (priors * outputs_temp).sum(dim=-1, keepdim=True)
                             logits = logits + delta_logits
-                        
+                            print 'logits.size()',logits.size()
+                            print 'logits.data[0,0,arr_to_keep[0],0,0]',logits.data[0,0,arr_to_keep[0],0,0]
+                            print 'logits.data[0,0,arr_to_drop[0],0,0]',logits.data[0,0,arr_to_drop[0],0,0]
+ 
+
+
                     outputs[:,:,row,col,:] = outputs_temp.squeeze()
 
             outputs = outputs.permute(1,0,2,3,4).contiguous()
+            raw_input()
         else:
             outputs = self.capsules(x)
             outputs = outputs.view(outputs.size(0),self.out_channels,self.num_capsules,outputs.size(2),outputs.size(3)).permute(0,2,3,4,1).contiguous()
-            # print outputs.shape
-            # print raw_input()
             outputs = self.squash(outputs,dim=-1)
 
-        # print outputs.shape
         return outputs
 
 
