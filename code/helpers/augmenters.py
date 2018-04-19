@@ -1,6 +1,7 @@
 import numpy as np
 import scipy.misc
 import cv2
+import random
 
 def crop_center(img,cropx,cropy):
     # y,x = img.shape
@@ -24,6 +25,37 @@ def horizontal_flip(im):
     if np.random.random()<0.5:
         im = np.array(im[:,::-1,:])
     return im
+
+def hide_and_seek(im, div_sizes = [9,7,5,3], hide_prob = 0.5,fill_val = 0):
+
+    # get width and height of the image
+    s = im.shape
+    wd = s[0]
+    ht = s[1]
+
+    grid_sizes = [0]+[im.shape[0]//div for div in div_sizes]
+    # print grid_sizes
+    # possible grid size, 0 means no hiding
+    # grid_sizes=[0,16,32,44,56]
+
+    # hiding probability
+    hide_probs = [0.1,0.2,0.3,0.4,0.5]
+ 
+    # randomly choose one grid size
+    grid_size= grid_sizes[random.randint(0,len(grid_sizes)-1)]
+    hide_prob = hide_probs[random.randint(0,len(hide_probs)-1)]
+    
+    # hide the patches
+    if grid_size!=0:
+        for x in range(0,wd,grid_size):
+            for y in range(0,ht,grid_size):
+                x_end = min(wd, x+grid_size)  
+                y_end = min(ht, y+grid_size)
+                if(random.random() <=  hide_prob):
+                    im[x:x_end,y:y_end]=fill_val
+
+    return im
+
 
 
 

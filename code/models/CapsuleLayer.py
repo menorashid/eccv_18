@@ -12,7 +12,7 @@ def softmax(input, dim=1,arr_to_keep = None):
     transposed_input = input.transpose(dim, len(input.size()) - 1)
     # print 'transposed_input.size()',transposed_input.size()
     x = transposed_input.contiguous().view(-1, transposed_input.size(-1))
-    print 'x.size()',x.size()
+    # print 'x.size()',x.size()
     if arr_to_keep is not None:
         # print 'DROPPING softmax'
         softmaxed_output_temp = F.softmax(x[:,arr_to_keep])
@@ -146,6 +146,8 @@ class CapsuleLayer(nn.Module):
 
     def forward(self,x):
         
+        forward_debug = False
+
         if self.num_in_capsules != 1:
             # print 'x.shape',x.shape
             assert x.shape[2]==x.shape[3]
@@ -169,15 +171,16 @@ class CapsuleLayer(nn.Module):
                     arr_to_keep.sort()
                     arr_to_drop = [val for val in arr_total if val not in arr_to_keep]
                     arr_to_drop.sort()
-                    print 'len(arr_to_drop)',len(arr_to_drop)
-                    print 'len(arr_to_keep)',len(arr_to_keep)
+                    if forward_debug:
+                        print 'len(arr_to_drop)',len(arr_to_drop)
+                        print 'len(arr_to_keep)',len(arr_to_keep)
+            if forward_debug:    
+                print 'self.training',self.training
+                print 'num_in_routes',num_in_routes
+                print 'outputs.size',outputs.size()
+                print 'self.route_weights.size()',self.route_weights.size()
+                print 'self.bias.size()',self.bias.size()
 
-            print 'self.training',self.training
-            print 'num_in_routes',num_in_routes
-            
-            print 'outputs.size',outputs.size()
-            print 'self.route_weights.size()',self.route_weights.size()
-            print 'self.bias.size()',self.bias.size()
             for row in range(w):  # Loop over every pixel of the output
                 for col in range(w):
                     col_start = col* self.stride
@@ -223,16 +226,19 @@ class CapsuleLayer(nn.Module):
                     logits = Variable(torch.zeros(*priors.size())).cuda().detach()
                     # logits = Variable(torch.zeros(priors.size(0),priors.size(1),len(arr_to_keep),priors.size(3),priors.size(4))).cuda()
                     # print 'logits.size()',logits.size()
-                    print 'priors.size()',priors.size()
-                    print 'priors.data[0,0,arr_to_keep[0],0,0]',priors.data[0,0,arr_to_keep[0],0,0]
-                    print 'priors.data[0,0,arr_to_drop[0],0,0]',priors.data[0,0,arr_to_drop[0],0,0]
+                    if forward_debug:
+                        print 'priors.size()',priors.size()
+                        print 'priors.data[0,0,arr_to_keep[0],0,0]',priors.data[0,0,arr_to_keep[0],0,0]
+                        print 'priors.data[0,0,arr_to_drop[0],0,0]',priors.data[0,0,arr_to_drop[0],0,0]
 
                     for i in range(self.num_iterations):
-                        print 'iter',i
+                        
                         probs = softmax(logits, dim=2, arr_to_keep=  arr_to_keep)
-                        print 'probs',probs.size()
-                        print 'probs.data[0,0,arr_to_keep[0],0,0]',probs.data[0,0,arr_to_keep[0],0,0]
-                        print 'probs.data[0,0,arr_to_drop[0],0,0]',probs.data[0,0,arr_to_drop[0],0,0]
+                        if forward_debug:
+                            print 'iter',i
+                            print 'probs',probs.size()
+                            print 'probs.data[0,0,arr_to_keep[0],0,0]',probs.data[0,0,arr_to_keep[0],0,0]
+                            print 'probs.data[0,0,arr_to_drop[0],0,0]',probs.data[0,0,arr_to_drop[0],0,0]
 
                         
                         
@@ -246,25 +252,30 @@ class CapsuleLayer(nn.Module):
                         # print 't.size()',t.size()
                         # raw_input()
                         mulled = probs * priors
-                        print 'mulled',mulled.size()
-                        print 'mulled.data[0,0,arr_to_keep[0],0,0]',mulled.data[0,0,arr_to_keep[0],0,0]
-                        print 'mulled.data[0,0,arr_to_drop[0],0,0]',mulled.data[0,0,arr_to_drop[0],0,0]
+                        if forward_debug:
+                            print 'mulled',mulled.size()
+                            print 'mulled.data[0,0,arr_to_keep[0],0,0]',mulled.data[0,0,arr_to_keep[0],0,0]
+                            print 'mulled.data[0,0,arr_to_drop[0],0,0]',mulled.data[0,0,arr_to_drop[0],0,0]
  
                         outputs_temp = self.squash((mulled).sum(dim=2, keepdim=True)+self.bias[:,None,None,None,:])
-                        print 'outputs_temp.size()',outputs_temp.size()
+                        if forward_debug:
+                            print 'outputs_temp.size()',outputs_temp.size()
                         if i != self.num_iterations - 1:
                             delta_logits = (priors * outputs_temp).sum(dim=-1, keepdim=True)
                             logits = logits + delta_logits
-                            print 'logits.size()',logits.size()
-                            print 'logits.data[0,0,arr_to_keep[0],0,0]',logits.data[0,0,arr_to_keep[0],0,0]
-                            print 'logits.data[0,0,arr_to_drop[0],0,0]',logits.data[0,0,arr_to_drop[0],0,0]
+
+                            if forward_debug:
+                                print 'logits.size()',logits.size()
+                                print 'logits.data[0,0,arr_to_keep[0],0,0]',logits.data[0,0,arr_to_keep[0],0,0]
+                                print 'logits.data[0,0,arr_to_drop[0],0,0]',logits.data[0,0,arr_to_drop[0],0,0]
  
 
 
                     outputs[:,:,row,col,:] = outputs_temp.squeeze()
 
             outputs = outputs.permute(1,0,2,3,4).contiguous()
-            raw_input()
+            if forward_debug:
+                raw_input()
         else:
             outputs = self.capsules(x)
             outputs = outputs.view(outputs.size(0),self.out_channels,self.num_capsules,outputs.size(2),outputs.size(3)).permute(0,2,3,4,1).contiguous()
