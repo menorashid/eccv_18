@@ -982,8 +982,192 @@ def get_primary_caps_emotion_dot():
     # visualize.writeHTML(out_file_html,im_rows,caption_rows,50,50)
 
 
+
+def change_direction_and_retrieve():
+    out_dir_meta = '../experiments/figures/primary_caps_viz'.replace(str_replace[0],str_replace[1])
+    out_dir_im = os.path.join(out_dir_meta,'im_all_patches/train')
+    
+    out_dir_meta = '../experiments/figures/primary_caps_viz_change_direction'.replace(str_replace[0],str_replace[1])
+    util.mkdir(out_dir_meta)
+
+    caps, test_file, convnet, imsize, routes  = get_caps_compiled(routed= True)
+    mags = np.linalg.norm(caps,axis = 4)
+    mags = np.transpose(mags,(0,2,3,1))
+    # mags = np.reshape(mags,(mags.shape[0]*mags.shape[1]*mags.shape[2],mags.shape[3]))
+    
+    gt_class = [int(line_curr.split(' ')[1]) for line_curr in util.readLinesFromFile(test_file)]
+
+    caps_org = np.array(caps)
+
+    caps = np.transpose(caps,(0,2,3,1,4))
+    # caps = np.reshape(caps,(caps.shape[0]*caps.shape[1]*caps.shape[2],caps.shape[3],caps.shape[4]))
+    idx_helper = range(caps.shape[0]*caps.shape[1]*caps.shape[2])
+    idx_helper = np.reshape(idx_helper,(caps_org.shape[0],caps_org.shape[2],caps_org.shape[3]))
+
+    print caps.shape
+    print mags.shape
+    raw_input()
+
+    num_to_keep = 100
+    num_clusters = 32
+
+
+    # range_values = np.arange(-0.5,
+    mag_range = np.arange(-0.5,0.6,0.05)
+
+    for filt_num in range(caps.shape[3]):
+        out_file_html = os.path.join(out_dir_meta,'_'.join([str(val) for val in [filt_num]])+'.html')
+        html_rows = []
+        html_captions = []
+
+        for row_num in range(1,6):
+            for col_num in range(1,6):
+
+                
+                caps_rel = caps[:,row_num,col_num,filt_num,:]
+                mags_rel = mags[:,row_num,col_num,filt_num]
+
+                idx_max = np.argmax(mags_rel,0);
+                caps_max = caps_rel[idx_max];
+
+                caps_norms = np.linalg.norm(caps_rel,axis=1, keepdims=True)
+                caps_unit = caps_rel
+
+                print caps_norms.shape
+                print caps_rel.shape
+
+                rel_idx = [idx_max,row_num,col_num]
+                file_max = os.path.join(out_dir_im,'_'.join([str(val) for val in rel_idx])+'.jpg')
+                
+                for caps_dim in range(caps_max.shape[0]):
+
+                    caps_max = caps_max/np.linalg.norm(caps_max)
+
+                    html_row_curr = [file_max]
+                    caption_row_curr = ['org %d %d %.2f' % (filt_num,caps_dim,mags_rel[idx_max])]
+                    for dim_mag_curr in mag_range:
+
+                        caps_new = caps_max[:]
+                        caps_new[caps_dim] = dim_mag_curr
+                        # print caps_new
+                        caps_new = caps_new/np.linalg.norm(caps_new,keepdims = True)
+                        # print caps_new
+                        distances = np.abs(np.matmul(caps_unit,caps_new[:,np.newaxis]))
+                        # min_idx = np.argsort(distances);
+                        closest_idx = np.argmin(distances)
+                        rel_idx = [closest_idx,row_num,col_num]
+
+                        file_curr = os.path.join(out_dir_im,'_'.join([str(val) for val in rel_idx])+'.jpg')
+                        caption_curr = '%.2f' % (dim_mag_curr)
+                        # , distances[closest_idx]) 
+                        html_row_curr.append(file_curr);
+                        caption_row_curr.append(caption_curr);
+
+                    html_row_curr = [util.getRelPath(file_curr,dir_server) for file_curr in html_row_curr]
+
+                    html_rows.append(html_row_curr)
+                    html_captions.append(caption_row_curr)
+
+        visualize.writeHTML(out_file_html,html_rows,html_captions,40,40)
+        print out_file_html
+
+
+                        # arg_multi_dim = np.where(idx_helper==idx_curr)
+        #         arg_multi_dim = [arr[0] for arr in arg_multi_dim]
+                
+        #         file_curr = os.path.join(out_dir_im,'_'.join([str(val) for val in arg_multi_dim])+'.jpg')
+        #         assert os.path.exists(file_curr)
+
+                        # print distances.shape,closest_idx,distances[closest_idx]
+                        # print closest_idx
+                        # print closest_idx.shape
+                        # print np.min(closest_idx),np.max(closest_idx)
+
+                        # raw_input()
+                        
+
+
+
+                # print mags_rel[idx_max]
+                # print caps_rel[idx_max]
+
+                # print caps_rel.shape
+                # print mags_rel.shape
+                # raw_input()
+
+
+
+        # if mag_sorted:
+        #     out_file_html = os.path.join(out_dir_meta,str(filt_num)+'_mag_sorted.html')
+        # elif routed:
+        #     out_file_html = os.path.join(out_dir_meta,str(filt_num)+'_route_weighted.html')
+        # else:
+        #     out_file_html = os.path.join(out_dir_meta,str(filt_num)+'.html')
+            
+        # im_rows = []
+        # caption_rows = []
+        
+        # caps_curr = caps[:,filt_num]    
+        # mags_curr = mags[:,filt_num]
+
+        # k_meaner = sklearn.cluster.KMeans(n_clusters=num_clusters)
+        # vec_rel = sklearn.preprocessing.normalize(caps_curr,axis = 1)
+        # # sklearn.preprocessing.normalize(sklearn.preprocessing.normalize(caps_curr,axis=0),axis=1) #feature normalize
+        # # print 'vec_rel.shape',vec_rel.shape
+        # print vec_rel.shape
+        # # numpy.random.permutation(x)
+        # k_meaner.fit(np.random.permutation(vec_rel))
+        # cluster_centers = k_meaner.cluster_centers_
+        # print cluster_centers.shape
+        # cluster_belongings = k_meaner.predict(vec_rel)
+        # # print cluster_centers,cluster_centers.shape
+
+        # for idx_cluster_center,cluster_center in enumerate(cluster_centers):
+        #     if mag_sorted:
+        #         idx_rel = np.where(cluster_belongings == idx_cluster_center)[0]
+        #         # print idx_rel.shape
+        #         # print idx_rel[:10]
+        #         mag_rel = mags_curr[idx_rel]
+        #         idx_sort = np.argsort(mag_rel)[::-1]
+        #         idx_sort = list(idx_rel[idx_sort])
+        #         # print idx_sort[:10]
+        #         # raw_input()
+        #     else:            
+        #         cluster_center = cluster_center[np.newaxis,:]
+        #         # print (vec_rel-cluster_center).shape
+        #         dist = np.linalg.norm(vec_rel-cluster_center,axis = 1)
+        #         # print dist.shape
+        #         # print mags.shape
+        #         # raw_input()
+        #         idx_sort = list(np.argsort(dist))
+
+        #     idx_sort = idx_sort[:num_to_keep]+idx_sort[-num_to_keep:]
+
+        #     im_row = []
+        #     caption_row =[]
+
+        #     for idx_idx, idx_curr in enumerate(idx_sort):
+        #         arg_multi_dim = np.where(idx_helper==idx_curr)
+        #         arg_multi_dim = [arr[0] for arr in arg_multi_dim]
+                
+        #         file_curr = os.path.join(out_dir_im,'_'.join([str(val) for val in arg_multi_dim])+'.jpg')
+        #         assert os.path.exists(file_curr)
+        #         im_row.append(util.getRelPath(file_curr,dir_server))
+        #         caption_row.append('%d %.4f' %(idx_idx,mags_curr[idx_curr]))
+        #             # str(idx_idx)+' '+str(filt_num))
+                
+        #     im_rows.append(im_row)
+        #     caption_rows.append(caption_row)
+
+        # visualize.writeHTML(out_file_html,im_rows,caption_rows,40,40)
+        # print out_file_html.replace(dir_server,click_str)
+ 
+
+
+
 def main():
-    get_primary_caps_emotion_dot()
+    change_direction_and_retrieve()
+    # get_primary_caps_emotion_dot()
     # make_primary_caps_emotion_map()
 
     # script_view_clusters_high_mag(mag_sorted = False, mag_percent = 0.5)

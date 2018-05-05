@@ -39,7 +39,10 @@ class CapsuleLayer(nn.Module):
         self.out_channels = out_channels
         self.dropout = dropout
 
+
+
         if self.num_in_capsules != 1:
+
             self.route_weights = nn.Parameter(torch.randn(num_capsules, self.num_route_nodes, in_channels, out_channels))
             self.bias = nn.Parameter(torch.Tensor(num_capsules,  out_channels).fill_(0.))
         else:
@@ -47,6 +50,7 @@ class CapsuleLayer(nn.Module):
             
             self.route_weights=False
             self.capsules = nn.Conv2d(in_channels, num_capsules*out_channels, kernel_size=kernel_size, stride=stride, padding=0) 
+
 
     def squash(self, tensor, dim=-1):
         # print 'in squash'
@@ -149,6 +153,9 @@ class CapsuleLayer(nn.Module):
         forward_debug = False
 
         if self.num_in_capsules != 1:
+
+            # print 'hello',self.num_in_capsules,self.num_route_nodes,self.dropout,self.route_weights
+
             # print 'x.shape',x.shape
             assert x.shape[2]==x.shape[3]
             # x = x.permute(0,4,1,2,3).contiguous()
@@ -208,7 +215,7 @@ class CapsuleLayer(nn.Module):
                         # print window[0,0,0,0,0]
                         # raw_input()
 
-
+                    # print window.size(),self.route_weights.size(),self.num_in_capsules
                     priors = torch.matmul(window,self.route_weights[:, None, :, :, :])
                     # *0
                     # print 'priors.size()',priors.size()

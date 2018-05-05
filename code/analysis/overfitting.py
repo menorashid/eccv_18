@@ -65,6 +65,79 @@ def overfitting():
 		xAndYs.append((epoch_range,val_losses))
 	visualize.plotSimple(xAndYs,out_file=out_file,xlabel='Epoch',ylabel='Validation Accuracy',legend_entries= legend_entries,ylim=[0.6,0.8],outside=True)
 
+
+def overfitting_do():
+	out_dir = '../experiments_dropout/figures/overfitting'
+	util.makedirs(out_dir)
+
+	dir_meta_r1 = '../experiments_dropout/khorrami_capsule_7_3_bigclass_with_dropout_1'
+	dir_meta_r3 = '../experiments_dropout/khorrami_capsule_7_3_bigclass_with_dropout_3'
+	dirs_post = ['oulu_96_train_test_files_preprocess_vl_9_reconstruct_False_none_600_step_600_0.1_0.001_0.001_0.0',
+	'oulu_96_train_test_files_preprocess_vl_9_reconstruct_False_none_600_step_600_0.1_0.001_0.001_0.5',
+	'oulu_96_train_test_files_preprocess_vl_9_reconstruct_False_hs_flip_600_step_600_0.1_0.001_0.001_0.0',
+	'oulu_96_train_test_files_preprocess_vl_9_reconstruct_False_hs_flip_600_step_600_0.1_0.001_0.001_0.5']
+	meta_legend_entries = ['R1','R3']
+	sub_legend_entries = ['None 0','None 0.5','HS+Flip 0','HS+Flip 0.5']
+	dirs = [os.path.join(dir_meta_curr,dir_curr) for dir_meta_curr in [dir_meta_r1,dir_meta_r3] for dir_curr in dirs_post]
+	legend_entries = [meta_legend+' '+sub_legend for meta_legend in meta_legend_entries for sub_legend in sub_legend_entries]
+
+
+	# # dirs = []
+	# # dir_meta = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_31'
+	# # dir_curr = os.path.join(dir_meta,'oulu_96_three_im_no_neutral_just_strong_False_0_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001')
+	# # dirs.append(dir_curr)
+	# # dir_meta = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_33'
+	# # dir_r3 = 'oulu_96_three_im_no_neutral_just_strong_False_0_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001'
+	# # dir_r3_lw_eq = 'oulu_96_three_im_no_neutral_just_strong_False_0_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001'
+	# # dir_r3_lw_b = 'oulu_96_three_im_no_neutral_just_strong_False_0_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001_lossweights_1.0_100.0'
+
+	# dirs = []
+	# # dir_meta = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_31'
+	# # dir_curr = os.path.join(dir_meta,'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001')
+	# # dirs.append(dir_curr)
+	# dir_meta = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_33'
+	# dir_r3 = 'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001'
+	# dir_r3_lw_eq = 'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001_lossweights_1.0_1.0'
+	# dir_r3_lw_b = 'oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_True_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.001_lossweights_1.0_100.0'
+
+	# dir_r3_do = '../experiments/showing_overfitting_justhflip_khorrami_capsule_7_3_with_dropout3/oulu_96_three_im_no_neutral_just_strong_False_9_reconstruct_False_True_all_aug_margin_False_wdecay_0_600_step_600_0.1_0.001_0.001_0.5'
+
+
+	# dirs_to_pend = [dir_r3,dir_r3_lw_eq,dir_r3_lw_b]
+
+
+
+
+
+
+	# for dir_curr in dirs_to_pend:
+	# 	dir_curr = os.path.join(dir_meta, dir_curr)
+	# 	dirs.append(dir_curr)
+
+	# dirs.append(dir_r3_do)
+
+	window = 10
+	val_lim = 600
+	epoch_range = range(window-1,val_lim)
+	
+	dirs = dirs[:4]+dirs[-2:]
+
+	out_file = os.path.join(out_dir,'val_accuracy_9_do.png')
+	xAndYs = []
+	# legend_entries = ['R3+0','R3+1e-7','R3+1e-5','R3+DO']
+	for dir_curr in dirs:
+		log_file_curr = os.path.join(dir_curr,'log.txt')
+		val_losses = [line_curr for line_curr in util.readLinesFromFile(log_file_curr) if 'val accuracy' in line_curr]
+		val_losses = [float(line_curr.split(' ')[-1]) for line_curr in val_losses]
+		val_losses = val_losses[:val_lim]
+		print dir_curr, len(val_losses)
+				
+		val_losses = np.convolve(val_losses, np.ones((window,))/window, mode='valid')
+
+		xAndYs.append((epoch_range,val_losses))
+	visualize.plotSimple(xAndYs,out_file=out_file,xlabel='Epoch',ylabel='Validation Accuracy',legend_entries= legend_entries,ylim=[0.6,0.8],outside=True)
+
+
 def collate_labels(dir_curr,num_it = False):
 	if num_it:
 		print dir_curr
@@ -87,7 +160,8 @@ def collate_labels(dir_curr,num_it = False):
 	return labels, preds, accu
 
 def main():
-	overfitting()
+	overfitting_do()
+	# overfitting()
 	return
 
 	# ck_stuff

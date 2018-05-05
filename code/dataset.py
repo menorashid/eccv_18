@@ -333,7 +333,10 @@ class Bp4d_Dataset_with_mean_std_val(generic_dataset):
 
         image = image-self.mean
         image = image/self.std
+        
+        # print 'hello'
         # print image.shape
+        # print image.shape, np.min(np.min(image,0),0),np.max(np.max(image,0),0)
         # print self.mean.shape
         # print self.std.shape
         # print image.shape, np.min(np.min(image,0),0),np.max(np.max(image,0),0)

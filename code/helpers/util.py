@@ -146,12 +146,17 @@ def get_class_weights_au(train_files):
     # print np.min(arr),np.max(arr)
     # raw_input()
     counts = np.sum(arr,0)
-    print counts
+
+    # print counts
     counts = counts/float(np.sum(counts))
-    counts = 1./counts
-    counts = counts/float(np.sum(counts))    
-    print counts
-    print counts.shape
+    # print counts
+    counts = np.array([1./val  if val>0 else 0 for val in counts])
+    # print counts
+    # counts[counts!=counts]=0
+    counts = counts/float(np.sum(counts))  
+
+    # print counts
+    # print counts.shape
     
     # raw_input()
         

@@ -835,6 +835,7 @@ def train_model_recon(out_dir_train,
     
     model = model.cuda()
     model.train(True)
+    print model
     
     # optimizer = optim.SGD(network.get_lr_list(lr), lr=0, momentum=0.9)
     optimizer = torch.optim.Adam(network.get_lr_list(lr),weight_decay=weight_decay)
@@ -872,6 +873,8 @@ def train_model_recon(out_dir_train,
 
             data = Variable(batch['image'].cuda())
             # print torch.min(data),torch.max(data)
+            # print data.size()
+
             # raw_input()
             
             if criterion=='marginmulti':
@@ -985,7 +988,13 @@ def train_model_recon(out_dir_train,
             labels_all = np.concatenate(labels_all)
             predictions = np.concatenate(predictions)
 
-            # print labels_all.shape,predictions.shape
+
+            print labels_all.shape,predictions.shape
+            print labels_all[:3,:]
+            # pred_print = np.zeros(predictions.shape)
+            # pred_print[:,np.argmax(predictions,1)]=1.
+            print predictions[:3,:]
+
             if len(labels_all.shape)>1:
                 accuracy = get_auc(predictions,labels_all)
             else:

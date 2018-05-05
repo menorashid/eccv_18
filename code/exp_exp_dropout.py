@@ -481,9 +481,9 @@ def checking_aug(wdecay,lr,route_iter,folds = [4,9],model_name='vgg_capsule_disf
 
 
 def make_command_str():
-    out_dir = '../experiments_dropout'
-    # util.mkdir(out_dir)
-    exp_name = 'oulu_3_none'
+    out_dir = '../experiments_dropout_rerun'
+    util.mkdir(out_dir)
+    exp_name = 'oulu_1_comp_4'
     out_dir_logs = os.path.join(out_dir,exp_name)
     util.mkdir(out_dir_logs)
 
@@ -491,19 +491,20 @@ def make_command_str():
 
     wdecay = 0
     lr = [0.001,0.001]
-    route_iter = 3
+    route_iter = 1
     # folds_all = [4,9]
     model_name = 'khorrami_capsule_7_3_bigclass_with_dropout'
     epoch_stuff = [600,600]
-    aug_more = [['none']]
+    aug_more = [['hs','flip'],['none']]
+    # ,['none']]
     # [['hs','flip']]
     # ,['flip']]
     # l[i:i+n] for i in xrange(0, len(l), n)
-    folds = [0,1,2,3,5,6,7,8]
-    folds = [folds[i:i+3] for i in range(0,len(folds),3)]
+    folds = [[9]]
+    # folds = [folds[i:i+3] for i in range(0,len(folds),3)]
     # print folds
     # raw_input()
-    dropout = [0,0.5]
+    dropout = [0.5]
 
 
     # ['flip','rotate']

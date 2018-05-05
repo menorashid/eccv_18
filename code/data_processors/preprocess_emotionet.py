@@ -423,8 +423,154 @@ def test_resize_kp():
     visualize.writeHTMLForFolder(out_dir_scratch)
 
 
+def make_anno_file(im_dir_pre):
+    dir_meta = '../data/emotionet';
+    out_dir = os.path.join(dir_meta,'anno_files')
+    util.mkdir(out_dir)
+
+    dir_url_files = os.path.join(dir_meta,'emotioNet_challenge_files_server');
+    url_files = glob.glob(os.path.join(dir_url_files,'*.txt'));
+
+
+    aus_to_keep = [1,2,4,5,6,9,12,17,20,25,26]
+    aus_to_keep = np.array(aus_to_keep)
+    idx_to_keep = aus_to_keep-1
+
+    im_str_replace = ['http://cbcsnas01.ece.ohio-state.edu/EmotioNet/Images',
+                    '../data/emotionet/preprocess_im_256_color_align']
+
+    sum_aus = np.zeros(idx_to_keep.shape);
+
+    # for anno_file in url_files:
+    for idx_url_file,url_file in enumerate(url_files):
+        out_file = url_file.replace(dir_url_files,out_dir);
+
+        print url_file, out_file
+        print 'On file %d of %d' %(idx_url_file,len(url_files)) 
+
+        lines = util.readLinesFromFile(url_file)
+        lines = [line_curr.split('\t') for line_curr in lines]
+
+        
+        lines_to_print = []
+
+        for line in lines:
+            # print line[0]
+            im_curr = line[0].replace(im_str_replace[0],im_str_replace[1])
+
+            if os.path.exists(im_curr):
+                
+                anno_arr = [int(val) for idx_val,val in enumerate(line[2:]) if idx_val in idx_to_keep]
+                assert np.max(anno_arr)<=1
+                
+                sum_aus = sum_aus+np.array(anno_arr);
+
+                line_out = ' '.join([str(val) for val in [im_curr]+anno_arr])
+                lines_to_print.append(line_out)
+
+        print len(lines),len(lines_to_print), sum_aus
+        util.writeFile(out_file,lines_to_print)
+        
+
+def reduce_training_data():
+    dir_meta = '../data/emotionet';
+    anno_dir = os.path.join(dir_meta,'anno_files')
+    out_dir_train_test = os.path.join(dir_meta,'train_test_files_toy');
+    util.mkdir(out_dir_train_test)
+
+    anno_files = glob.glob(os.path.join(anno_dir,'dataFile_*.txt'))
+    print len(anno_files);
+
+    org_au = [1,2,4,5,6,9,12,17,20,25,26]
+    aus_to_keep = [1,9,12]
+
+
+    num_chunks = 3
+
+
+
+    all_data = []
+    for anno_file in anno_files[:1]:
+        all_data = all_data+util.readLinesFromFile(anno_file)
+
+    im_files = [line_curr.split(' ')[0] for line_curr in all_data]
+    anno_bin = [[int(val) for val in line_curr.split(' ')[1:]] for line_curr in all_data]
+    anno_bin = np.array(anno_bin);
+    print np.sum(anno_bin,0)
+
+    print len(im_files)
+    print len(anno_bin)
+    print im_files[0]
+    print anno_bin[0]
+
+
+    chunk_size = len(all_data)//num_chunks
+    print chunk_size
+
+    chunks = [all_data[x:x+chunk_size] for x in range(0, len(all_data), chunk_size)]
+    chunks[-2] = chunks[-2]+chunks[-1]
+    chunks = chunks[:3]
+
+    print len(chunks)
+    for chunk in chunks:
+        print len(chunk)
+
+
+    for fold_num in range(num_chunks):
+
+        out_file_train = os.path.join(out_dir_train_test,'train_'+str(fold_num)+'.txt')
+        out_file_test = os.path.join(out_dir_train_test,'test_'+str(fold_num)+'.txt')
+
+        # print len(fold_data)
+        print fold_num
+        train_data = []
+        [train_data.extend(data_curr) for idx_data_curr, data_curr in enumerate(chunks) if idx_data_curr!=fold_num]
+        test_data = chunks[fold_num]
+        
+        print out_file_train, len(train_data)
+        print out_file_test, len(test_data)
+
+        util.writeFile(out_file_train, train_data)
+        util.writeFile(out_file_test, test_data)
+
+        
+        
+ 
+
+    # for anno_file in anno_files:
+    #     print anno_file
+
+
+
+
+def check_class_weights():
+    folds = range(3)
+    dir_files = '../data/emotionet/train_test_files_toy'
+    for fold in folds:
+        train_file = os.path.join(dir_files,'train_'+str(fold)+'.txt')
+        test_file =  os.path.join(dir_files,'test_'+str(fold)+'.txt')
+        train_weights = util.get_class_weights_au(util.readLinesFromFile(train_file))
+        test_weights = util.get_class_weights_au(util.readLinesFromFile(test_file))
+        diff_weights = np.abs(train_weights-test_weights)
+        print fold
+        print np.min(diff_weights),np.max(diff_weights),np.mean(diff_weights)
+        # print list(train_weights)
+        # print list(test_weights)
+        # print list(diff_weights)
+
+
+
+        
+
+
 def main():
-    script_save_align_im()
+
+    check_class_weights()
+
+    # print 'hello'
+    # reduce_training_data()
+    # make_anno_file(None);
+    # script_save_align_im()
     # dir_meta = '../data/bp4d'
     
 

@@ -7,9 +7,9 @@ import glob
 import scipy.misc
 import numpy as np
 import random
-import face_alignment
 import skimage.transform
 import multiprocessing
+import face_alignment
 import dlib
 import cv2
 import shutil
