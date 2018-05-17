@@ -59,19 +59,6 @@ def script_download_image():
 
     print len(args)
     print len(out_files)
-        # args = args[:5]
-        # raw_input()
-        # for arg in args:
-        #     print arg
-            # raw_input()
-            # download_image(arg)
-            # raw_input()
-    # pool = multiprocessing.Pool(multiprocessing.cpu_count())
-    # pool.map(download_image,args)
-    # pool.close()
-    # pool.join()
-
-    # urllib.urlcleanup()
     return out_files
 
 def save_resized_images((in_file,out_file,im_size,savegray,idx_file_curr)):
@@ -475,11 +462,15 @@ def make_anno_file(im_dir_pre):
 def reduce_training_data():
     dir_meta = '../data/emotionet';
     anno_dir = os.path.join(dir_meta,'anno_files')
-    out_dir_train_test = os.path.join(dir_meta,'train_test_files_toy');
+    out_dir_train_test = os.path.join(dir_meta,'train_test_files_3_files');
     util.mkdir(out_dir_train_test)
 
     anno_files = glob.glob(os.path.join(anno_dir,'dataFile_*.txt'))
+
     print len(anno_files);
+    anno_files = anno_files[:3]
+
+    util.writeFile(os.path.join(out_dir_train_test,'dataFiles_used.txt'),anno_files)
 
     org_au = [1,2,4,5,6,9,12,17,20,25,26]
     aus_to_keep = [1,9,12]
@@ -490,8 +481,10 @@ def reduce_training_data():
 
 
     all_data = []
-    for anno_file in anno_files[:1]:
-        all_data = all_data+util.readLinesFromFile(anno_file)
+    for anno_file in anno_files:
+        anno_curr = util.readLinesFromFile(anno_file)
+        print anno_file, len(anno_curr)
+        all_data = all_data + anno_curr
 
     im_files = [line_curr.split(' ')[0] for line_curr in all_data]
     anno_bin = [[int(val) for val in line_curr.split(' ')[1:]] for line_curr in all_data]
@@ -565,6 +558,7 @@ def check_class_weights():
 
 def main():
 
+    # reduce_training_data()
     check_class_weights()
 
     # print 'hello'

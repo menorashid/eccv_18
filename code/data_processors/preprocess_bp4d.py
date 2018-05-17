@@ -253,7 +253,7 @@ def save_best_bbox_batch((file_pairs, idx_file_curr)):
     face_detector = dlib.cnn_face_detection_model_v1(classifier_path)
 
     for idx_file_curr,(in_file,out_file) in enumerate(file_pairs):
-        if idx_file_curr%100==0:
+        if idx_file_curr%10==0:
             print idx_file_curr
 
         im = scipy.misc.imread(in_file)

@@ -140,7 +140,7 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
                     
 
             reconstruction_loss = self.reconstruction_loss(reconstructions, images_copy)
-            reconstruction_loss = (0.00001 * reconstruction_loss)/batch_size
+            reconstruction_loss = (0.000001 * reconstruction_loss)/batch_size
             # reconstruction_loss = reconstruction_loss/batch_size
             # (0.0000001 * reconstruction_loss)/batch_size
 

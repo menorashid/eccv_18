@@ -35,7 +35,7 @@ def train_with_vgg(lr,
                 gpu_id = 0,
                 aug_more = 'flip',
                 model_to_test = None,
-                save_after = 10,
+                save_after = 1,
                 batch_size = 32,
                 batch_size_val = 32,
                 criterion = 'marginmulti'):
@@ -133,8 +133,8 @@ def train_with_vgg(lr,
         data_transforms['val']= transforms.Compose(list_transforms_val)
 
 
-        train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = False, mean_std = mean_std, transform = data_transforms['train'],resize=train_resize)
-        test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= False, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
+        train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = True, mean_std = mean_std, transform = data_transforms['train'],resize=train_resize)
+        test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= True, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
     
 
         network_params = dict(n_classes = n_classes, pool_type = 'max', r = route_iter, init = False , class_weights = class_weights, reconstruct = reconstruct, loss_weights = loss_weights, std_div = std_div, dropout = dropout)
@@ -150,7 +150,7 @@ def train_with_vgg(lr,
                     save_after = save_after,
                     disp_after = 1,
                     plot_after = 100,
-                    test_after = 10,
+                    test_after = 1,
                     lr = lr,
                     dec_after = dec_after, 
                     model_name = model_name,
@@ -211,39 +211,31 @@ def get_out_dir_train_name(out_dir_pre,lr,route_iter,fold,epoch_stuff=[30,60],re
 
 
 def make_command_str():
-    out_dir = '../experiments_emotionet'
-    train_file_pre = '../data/emotionet/train_test_files_3_files/train_'
-    test_file_pre =  '../data/emotionet/train_test_files_3_files/test_'
+    out_dir = '../experiments_pain'
+
+    train_file_pre = '../data/pain/train_test_files_loo_1_thresh_au_only/train_'
+    test_file_pre =  '../data/pain/train_test_files_loo_1_thresh_au_only/test_'
     util.mkdir(out_dir)
-    exp_name = 'emotionet_3_files'
+    exp_name = 'pain_train_1_thresh'
     out_dir_logs = os.path.join(out_dir,exp_name)
     util.mkdir(out_dir_logs)
 
     out_file_sh = os.path.join(out_dir,exp_name+'.sh')
 
     wdecay = 0
-    # lr = [0.001,0.001]
     route_iter = 3
-    n_classes = 11
-    # folds_all = [4,9]
+    n_classes = 6
     model_name = 'vgg_capsule_7_3_with_dropout'
-    epoch_stuff = [100,100]
-    # aug_more = [['none'],['hs','flip'],['flip','rotate','scale_translate']]
-    aug_more = [['flip'],['hs','flip']]
+    epoch_stuff = [350,20]
+    aug_more = [['flip','rotate','scale_translate']]
     folds = [[0]]
-    # [[0,1,2]]
-    reconstruct = False
-    # True
-    batch_size_val =32
+    exp = True
+    reconstruct = True
+    batch_size_val = 32
     batch_size = 32
 
-    
-    # ,['flip','rotate','scale_translate']]
-    # folds = [[0]]
-
     dropout = [0]
-    # lr_meta = [[0.001,0.001],[0.0001,0.001],[0.,0.001]]
-    lr_meta = [[0.0001,0.001]]
+    lr_meta = [[0.0001,0.001,0.001]]
 
     commands_all = []
 
@@ -255,10 +247,10 @@ def make_command_str():
     for aug_more, dropout, folds, lr, gpu_id in params_arr:
         out_file = os.path.join(out_dir_logs,'_'.join([str(val) for val in aug_more+[dropout]+folds])+'.txt')
 
-        out_dir_pre = os.path.join(out_dir,model_name+'_'+str(route_iter),'emotionet_3_files')
+        out_dir_pre = os.path.join(out_dir,model_name+'_'+str(route_iter),'au_only_1_pain_thresh')
         
         command_str = []
-        command_str.extend(['python','exp_exp_emotionet.py'])
+        command_str.extend(['python','exp_pain.py'])
         command_str.append('train')
         command_str.extend(['--lr']+lr)
         command_str.extend(['--route_iter', route_iter])
@@ -279,6 +271,8 @@ def make_command_str():
         command_str.extend(['--gpu_id', gpu_id])
         if reconstruct:
             command_str.extend(['--reconstruct'])
+        if exp:
+            command_str.extend(['--exp'])
 
         command_str.extend(['>', out_file,'&'])
         command_str = ' '.join([str(val) for val in command_str])
@@ -325,6 +319,9 @@ def main(args):
         parser.add_argument('--reconstruct', dest='reconstruct', default = False, action='store_true', help='reconstruct')
         parser.add_argument('--batch_size', metavar='batch_size', default = 32, type=int, help='batch_size')
         parser.add_argument('--batch_size_val', metavar='batch_size_val', default = 32, type=int, help='batch_size_val')
+        parser.add_argument('--exp', dest='exp', default = False, action='store_true', help='exp')
+        
+
         if len(args)>2:
             args = parser.parse_args(args[2:])
             args = vars(args)
