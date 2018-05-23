@@ -449,10 +449,54 @@ def save_mean_std_im(dir_files):
 
 
 
+def get_au_counts_ck():
+    dir_files = '../data/ck_96/train_test_files'
+    num_folds = 10
+    list_au_keep = [1, 2, 4, 5, 6, 7, 9, 10, 12, 14, 15, 17, 20, 23, 24, 25, 26, 27, 38]
+    assert all(list_au_keep[i] < list_au_keep[i+1] for i in xrange(len(list_au_keep)-1))
+
+    idx_26 = list_au_keep.index(26)
+    idx_map = range(idx_26)+[idx_26,idx_26]
+    print idx_map
+    print 'len(idx_map)',len(idx_map)
+    idx_map = idx_map + range(len(idx_map)-1,len(list_au_keep)-1)
+    print idx_map
+    
+    assert len(idx_map)==len(list_au_keep)
+    for i in range(len(idx_map)):
+        print idx_map[i],list_au_keep[i]
+
+    # raw_input()
+    
+    lines_curr = []
+    for fold_curr in range(num_folds):
+        # for file_pre in ['train','test']:
+        combo_file = os.path.join(dir_files, '_'.join(['train','emofacscombo',str(fold_curr)+'.txt']))
+        lines_curr = lines_curr+util.readLinesFromFile(combo_file)
+
+
+    print len(lines_curr)
+    lines_curr = list(set(lines_curr))
+    annos = np.array([[int(val) for val in line_curr.split(' ')[1:]] for line_curr in lines_curr])
+    
+    print np.sum(annos[:,0]==1)
+    print np.sum(np.logical_and(annos[:,0]==1,annos[:,1]==1))
+    bin_angry_annos = np.logical_and(annos[:,0]==1,annos[:,1]==1)
+    rel_rows = annos[bin_angry_annos,2:]
+    print rel_rows.shape
+    print np.sum(rel_rows,0)
+    
+
+    # print annos.shape
+    # print np.max(annos,0)
+    # print len(lines_curr)
+
+
 
 
 def main():
-    write_non_peak_files()
+    get_au_counts_ck()
+    # write_non_peak_files()
 
     # saveCKresizeImages()
     # get_non_peak_im_list()

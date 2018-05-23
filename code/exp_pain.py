@@ -62,7 +62,7 @@ def train_with_vgg(lr,
     for split_num in folds:
         # post_pend = [split_num,'reconstruct',reconstruct]+aug_more+[num_epochs]+dec_after+lr+[dropout]
         # out_dir_train =  '_'.join([str(val) for val in [out_dir_pre]+post_pend]);
-        out_dir_train = get_out_dir_train_name(out_dir_pre,lr,route_iter,split_num,epoch_stuff,reconstruct, exp, dropout, aug_more)
+        out_dir_train = get_out_dir_train_name(out_dir_pre,lr,route_iter,split_num,epoch_stuff,reconstruct, exp, dropout, aug_more,loss_weights)
 
         print out_dir_train
         # raw_input()
@@ -136,8 +136,10 @@ def train_with_vgg(lr,
         train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = True, mean_std = mean_std, transform = data_transforms['train'],resize=train_resize)
         test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= True, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
     
-
-        network_params = dict(n_classes = n_classes, pool_type = 'max', r = route_iter, init = False , class_weights = class_weights, reconstruct = reconstruct, loss_weights = loss_weights, std_div = std_div, dropout = dropout)
+        if 'dropout' in model_name:
+            network_params = dict(n_classes = n_classes, pool_type = 'max', r = route_iter, init = False , class_weights = class_weights, reconstruct = reconstruct, loss_weights = loss_weights, std_div = std_div, dropout = dropout)
+        else:
+            network_params = dict(n_classes = n_classes, pool_type = 'max', r = route_iter, init = False , class_weights = class_weights, reconstruct = reconstruct, loss_weights = loss_weights, std_div = std_div)
             
         util.makedirs(out_dir_train)
         
@@ -192,7 +194,7 @@ def train_with_vgg(lr,
 
 
 
-def get_out_dir_train_name(out_dir_pre,lr,route_iter,fold,epoch_stuff=[30,60],reconstruct = False, exp = False, dropout = 0, aug_more = ['flip']):
+def get_out_dir_train_name(out_dir_pre,lr,route_iter,fold,epoch_stuff=[30,60],reconstruct = False, exp = False, dropout = 0, aug_more = ['flip'],loss_weights = None):
     
     num_epochs = epoch_stuff[1]
     if exp:
@@ -200,7 +202,12 @@ def get_out_dir_train_name(out_dir_pre,lr,route_iter,fold,epoch_stuff=[30,60],re
     else:
         dec_after = ['step',epoch_stuff[0],0.1]
 
+
     post_pend = [fold,'reconstruct',reconstruct]+aug_more+[num_epochs]+dec_after+lr+[dropout]
+
+    if loss_weights is not None:
+        post_pend = post_pend+['loss_weights']+loss_weights
+
     out_dir_train =  '_'.join([str(val) for val in [out_dir_pre]+post_pend]);
 
     return out_dir_train
@@ -236,6 +243,7 @@ def make_command_str():
 
     dropout = [0]
     lr_meta = [[0.0001,0.001,0.001]]
+    loss_weights = [1.,1.]
 
     commands_all = []
 
@@ -247,7 +255,7 @@ def make_command_str():
     for aug_more, dropout, folds, lr, gpu_id in params_arr:
         out_file = os.path.join(out_dir_logs,'_'.join([str(val) for val in aug_more+[dropout]+folds])+'.txt')
 
-        out_dir_pre = os.path.join(out_dir,model_name+'_'+str(route_iter),'au_only_1_pain_thresh')
+        out_dir_pre = os.path.join(out_dir,model_name+'_'+str(route_iter),'au_only_1_pain_thresh_rerun')
         
         command_str = []
         command_str.extend(['python','exp_pain.py'])
@@ -269,6 +277,9 @@ def make_command_str():
         command_str.extend(['--aug_more']+aug_more)
         command_str.extend(['--dropout', dropout])
         command_str.extend(['--gpu_id', gpu_id])
+
+        command_str.extend(['--loss_weights']+loss_weights)
+
         if reconstruct:
             command_str.extend(['--reconstruct'])
         if exp:
@@ -320,6 +331,7 @@ def main(args):
         parser.add_argument('--batch_size', metavar='batch_size', default = 32, type=int, help='batch_size')
         parser.add_argument('--batch_size_val', metavar='batch_size_val', default = 32, type=int, help='batch_size_val')
         parser.add_argument('--exp', dest='exp', default = False, action='store_true', help='exp')
+        parser.add_argument('--loss_weights', dest='loss_weights', default = [1.,1.],nargs = '+', type = float,help='loss_weights')
         
 
         if len(args)>2:

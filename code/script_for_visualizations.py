@@ -3,12 +3,13 @@ from torchvision import datasets, transforms
 import models
 
 import os
-from helpers import util,visualize,augmenters
+from helpers import util,visualize,augmenters,receptive_field
 import random
 import dataset
 import numpy as np
 import torch
 from analysis import getting_accuracy
+from analysis import primary_caps_visualizing as pcv
 from helpers import util,visualize,augmenters
 import save_visualizations
 
@@ -384,24 +385,28 @@ def get_entropy_table():
             # raw_input()
            
 def get_entropy_map():
-    # out_dir = '../experiments/figures/ck_routing'
-    # util.makedirs(out_dir)
-    # out_file_table = os.path.join(out_dir,'ent_diff_table.txt')
-
-    # str_file = []
-
-    # num_emos = 8
-    # emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
-
-    out_dir = '../experiments/figures/bp4d_routing'
+    
+    in_dir = '../experiments/figures/ck_routing'
+    out_dir = '../experiments/figures_rebuttal/ck_routing'
     util.makedirs(out_dir)
     out_file_table = os.path.join(out_dir,'ent_diff_table.txt')
 
+    # str_file = []
+
+    num_emos = 8
+    emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
+    print out_dir
+    print in_dir
+    print 'I"M RUNNING!!!'
+    # out_dir = '../experiments/figures/bp4d_routing'
+    # util.makedirs(out_dir)
+    # out_file_table = os.path.join(out_dir,'ent_diff_table.txt')
+
     str_file = []
 
-    num_emos = 12
-    aus = [1,2,4,6,7,10,12,14,15,17,23,24]
-    emo_strs = ['AU_'+str(num) for num in aus]
+    # num_emos = 12
+    # aus = [1,2,4,6,7,10,12,14,15,17,23,24]
+    # emo_strs = ['AU_'+str(num) for num in aus]
 
     num_routes = 2
     for route_num in range(num_routes):
@@ -411,7 +416,7 @@ def get_entropy_map():
             label_arr = []
             for label_compare in range(num_emos):
                 file_name = [label_curr,label_compare,route_num]
-                ent_file = os.path.join(out_dir,'_'.join([str(val) for val in file_name])+'.npy')
+                ent_file = os.path.join(in_dir,'_'.join([str(val) for val in file_name])+'.npy')
                 ent_curr = np.load(ent_file)
                 label_arr.append(ent_curr)
 
@@ -600,12 +605,116 @@ def script_visualizing_primary_caps():
     save_visualizations.save_primary_caps(**test_params)
 
 
+def plot_specific_patches():
+    dirs_rel = get_ck_16_dirs()
+    
+    test_pre = '../data/ck_96/train_test_files/test_'
+    im_files = []
+    for num in range(10):
+        lines = util.readLinesFromFile(test_pre+str(num)+'.txt')
+        im_files = im_files+[line_curr.split(' ')[0] for line_curr in lines]
+    print len(im_files)
+    print im_files[0]
+
+
+    out_dir = '../experiments/figures/ck_routing'
+    out_dir_im_meta = '../experiments/figures_rebuttal/ck_routing'
+
+    util.makedirs(out_dir)
+    util.makedirs(out_dir_im_meta)
+
+
+    mats_names = ['labels','preds','routes_0','routes_1']
+    mat_arrs = [[] for name in mats_names]
+    for dir_curr in dirs_rel:
+        for idx_mat_name,mat_name in enumerate(mats_names):
+            arr_curr_file = os.path.join(dir_curr,mat_name+'.npy')
+            arr_curr = np.load(arr_curr_file)
+            mat_arrs[idx_mat_name].append(arr_curr)
+
+    # mat_arrs = [np.concatenate(mat_arr,0) for mat_arr in mat_arrs]
+    axis_combine = [0,0,1,1]
+    mat_arrs = [np.concatenate(mat_arr,axis_curr) for mat_arr,axis_curr in zip(mat_arrs,axis_combine)]
+    for idx_mat_arr,mat_arr in enumerate(mat_arrs):
+        print mat_arr.shape,len(im_files)
+
+    # print mat_arrs[0][:10],mat_arrs[1][:10]
+    accuracy = np.sum(mat_arrs[0]==mat_arrs[1])/float(mat_arrs[0].size)
+    print 'accuracy',accuracy
+
+    # print mat_arrs
+    routes_all = mat_arrs[2:]
+    # print len(routes_all)
+    # raw_input()
+    num_emos = 8
+    emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
+    _, _, convnet, imsize  = pcv.get_caps_compiled()
+
+    print convnet,imsize
+
+    # tuples_to_save = [(3,1),(3,3),(1,0)]
+    # arr_emo = (1,[(3,1),(3,3),(1,0)])
+    arr_emo = (3,[(2,3),(3,2),(4,3)])
+
+    for label_curr,tuples_to_save in [arr_emo]:
+        # label_curr = 1
+        label_compare = label_curr
+
+        out_dir_im = os.path.join(out_dir_im_meta,emo_strs[label_curr])
+        util.mkdir(out_dir_im)
+        print out_dir_im
+        # raw_input()
+
+
+
+        idx_keep = np.logical_and(mat_arrs[0]==label_curr,mat_arrs[0]==mat_arrs[1])
+        files_keep = [im_curr for idx_im_curr,im_curr in enumerate(im_files) if idx_keep[idx_im_curr]]
+        
+        out_file_html = os.path.join(out_dir_im,'patches.html')
+        html_rows = []
+        caption_rows = []
+        for x,y in tuples_to_save:
+            html_row = []
+            caption_row = []
+
+            for idx_test_im_curr,test_im in enumerate(files_keep):
+                im_curr = scipy.misc.imread(test_im)
+
+                out_file_curr = os.path.join(out_dir_im,'_'.join([str(val) for val in [idx_test_im_curr,x,y]])+'.jpg')
+                # print out_file_curr
+                # raw_input()
+                
+                rec_field, center = receptive_field.get_receptive_field(convnet,imsize,len(convnet)-1, x,y)
+                center = [int(round(val)) for val in center]
+                range_x = [max(0,center[0]-rec_field/2),min(imsize,center[0]+rec_field/2)]
+                range_y = [max(0,center[1]-rec_field/2),min(imsize,center[1]+rec_field/2)]
+                # print range_x
+                # raw_input()
+                patch = im_curr[range_y[0]:range_y[1],range_x[0]:range_x[1]]
+                # print out_file_curr
+                # raw_input()
+                scipy.misc.imsave(out_file_curr,patch)
+                html_row.append(util.getRelPath(out_file_curr.replace(str_replace[0],str_replace[1]),dir_server))
+                caption_row.append(' '.join([str(val) for val in [idx_test_im_curr,x,y]]))
+            html_rows.append(html_row)
+            caption_rows.append(caption_row)
+
+        visualize.writeHTML(out_file_html,html_rows,caption_rows,40,40)
+
+
+
+
+
+
 def main():
+    plot_specific_patches()
     # get_entropy_map()
     # get_entropy_table()
     # load_mats_au()
 
-    script_visualizing_primary_caps()
+    # get_entropy_map()
+
+    # script_visualizing_primary_caps()
 
     return
 
