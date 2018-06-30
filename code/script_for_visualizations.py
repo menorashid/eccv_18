@@ -417,21 +417,23 @@ def get_entropy_map():
             for label_compare in range(num_emos):
                 file_name = [label_curr,label_compare,route_num]
                 ent_file = os.path.join(in_dir,'_'.join([str(val) for val in file_name])+'.npy')
-                ent_curr = np.load(ent_file)
-                label_arr.append(ent_curr)
+                print ent_file
+
+            #     ent_curr = np.load(ent_file)
+            #     label_arr.append(ent_curr)
 
 
-            # true_ent = np.mean(label_arr[label_curr],0)
-            # print true_ent
-            all_ents = [np.mean(label_arr[idx],0) for idx in range(num_emos)]
-            catted = np.concatenate(all_ents,0)
-            min_val = np.min(catted)
-            max_val = np.max(catted)
-            for idx_ent_curr, ent_curr in enumerate(all_ents):
-                out_file_curr = os.path.join(out_dir,'_'.join(str(val) for val in [label_curr,idx_ent_curr,route_num,route_num])+'.png')
-                title = emo_strs[label_curr]+' '+emo_strs[idx_ent_curr]
+            # # true_ent = np.mean(label_arr[label_curr],0)
+            # # print true_ent
+            # all_ents = [np.mean(label_arr[idx],0) for idx in range(num_emos)]
+            # catted = np.concatenate(all_ents,0)
+            # min_val = np.min(catted)
+            # max_val = np.max(catted)
+            # for idx_ent_curr, ent_curr in enumerate(all_ents):
+            #     out_file_curr = os.path.join(out_dir,'_'.join(str(val) for val in [label_curr,idx_ent_curr,route_num,route_num])+'.png')
+            #     title = emo_strs[label_curr]+' '+emo_strs[idx_ent_curr]
 
-                visualize.plot_colored_mats(out_file_curr,ent_curr,min_val,max_val, title=title)
+            #     visualize.plot_colored_mats(out_file_curr,ent_curr,min_val,max_val, title=title)
 
             
 
@@ -702,12 +704,174 @@ def plot_specific_patches():
         visualize.writeHTML(out_file_html,html_rows,caption_rows,40,40)
 
 
+def make_ent_rec_win_accu():
+    ent_dir = '../experiments/figures/ck_routing'
+    out_dir = '../experiments/figures_rebuttal/ent_heat_map'
+    in_dir_mean = '../data/ck_96/mean_expressions'
+    util.mkdir(out_dir)
+
+    num_emos = 8
+    emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
+    
+    emo_idx = 1
+    emo_str = 'Anger'
+    for emo_idx, emo_str in enumerate(emo_strs):
+
+        ent_file = os.path.join(ent_dir,'_'.join([str(val) for val in [emo_idx,emo_idx,1]])+'.npy')
+        ent = np.load(ent_file)
+        mean_ent = np.mean(ent,axis=0)
+        mean_ent = mean_ent - np.min(mean_ent)
+        mean_ent = mean_ent/np.max(mean_ent)
+        print np.min(mean_ent),np.max(mean_ent)
+        mean_ent = 1 - mean_ent
+        print np.min(mean_ent),np.max(mean_ent)
+
+        accu = np.zeros((96,96))
+        count = np.zeros((96,96))
+        
+        _, _, convnet, imsize  = pcv.get_caps_compiled()
+        print imsize
+
+        for x in range(1,6):
+            for y in range(1,6):
+                rec_field, center = receptive_field.get_receptive_field(convnet,imsize,len(convnet)-1, x,y)
+                center = [int(round(val)) for val in center]
+                range_x = [max(0,center[0]-rec_field/2),min(imsize,center[0]+rec_field/2)]
+                range_y = [max(0,center[1]-rec_field/2),min(imsize,center[1]+rec_field/2)]
+                # print range_x,range_y
+
+                accu[range_y[0]:range_y[1],range_x[0]:range_x[1]] = accu[range_y[0]:range_y[1],range_x[0]:range_x[1]]+mean_ent[y,x]
+
+                count[range_y[0]:range_y[1],range_x[0]:range_x[1]] = count[range_y[0]:range_y[1],range_x[0]:range_x[1]]+1
+        
+        count[count==0]=1.
+        heat_map = accu/count
+        out_file = os.path.join(out_dir,emo_str.lower()+'.png')
+        
+        # print out_file
+        # print heat_map.shape, np.min(heat_map),np.max(heat_map)
+        visualize.plot_colored_mats(out_file,heat_map,0,1, title=emo_str)
+        heat_map = visualize.getHeatMap(heat_map)*255
+
+        # print 'heat_map',heat_map.shape, np.min(heat_map), np.max(heat_map)
 
 
+        avg_im = scipy.misc.imread(os.path.join(in_dir_mean,emo_str.lower()+'.png'))
+        avg_im = avg_im[:,:,np.newaxis]
+        avg_im = np.concatenate([avg_im,avg_im,avg_im],2)
+        # print avg_im.shape, np.min(avg_im),np.max(avg_im)
 
+        for alpha in np.arange(0.1,1.0,0.1):
+            out_file_heat = os.path.join(out_dir,emo_str.lower()+'_heat_'+str(alpha)+'.png')
+            visualize.fuseAndSave(avg_im,heat_map,0.5,out_file_curr=out_file_heat)
+        # ,max_val=255)
+        # print heat_map.shape, np.min(heat_map),np.max(heat_map)
+        # scipy.misc.imsave(out_file_heat,heat_map)
+
+        # raw_input()
+
+    visualize.writeHTMLForFolder(out_dir,'.png')
+                
+
+    print mean_ent.shape
+
+    
+def make_ent_rec_win_accu_individual():
+    ent_dir = '../experiments/figures/ck_routing'
+    out_dir = '../experiments/figures_rebuttal/individual_ent_heat_map'
+    util.mkdir(out_dir)
+
+    labels = np.load(os.path.join(ent_dir,'labels.py.npy'))
+    preds = np.load(os.path.join(ent_dir,'preds.py.npy'))
+
+    test_pre = '../data/ck_96/train_test_files/test_'
+    im_files = []
+    annos = []
+    for num in range(10):
+        lines = util.readLinesFromFile(test_pre+str(num)+'.txt')
+        im_files = im_files+[line_curr.split(' ')[0] for line_curr in lines]
+        annos = annos +  [int(line_curr.split(' ')[1]) for line_curr in lines]
+    im_files = np.array(im_files)
+    annos = np.array(annos)
+
+
+    num_emos = 8
+    emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
+    
+    emo_idx = 1
+    emo_str = 'Anger'
+    _, _, convnet, imsize  = pcv.get_caps_compiled()
+
+    for emo_idx, emo_str in enumerate(emo_strs):
+        out_dir_curr = os.path.join(out_dir,emo_str.lower())
+        util.mkdir(out_dir_curr)
+
+        rel_idx = np.logical_and(labels==emo_idx,preds==labels)
+        rel_im = im_files[rel_idx]
+        
+
+        ent_file = os.path.join(ent_dir,'_'.join([str(val) for val in [emo_idx,emo_idx,1]])+'.npy')
+        ent = np.load(ent_file)
+        for idx,mean_ent in enumerate(ent):
+            print mean_ent.shape
+            print np.mean(mean_ent),np.max(mean_ent)
+
+            mean_ent = mean_ent - np.min(mean_ent)
+            mean_ent = mean_ent/np.max(mean_ent)
+            mean_ent = 1 - mean_ent
+    
+            accu = np.zeros((96,96))
+            count = np.zeros((96,96))
+            
+    #     
+    #     print imsize
+
+            for x in range(1,6):
+                for y in range(1,6):
+                    rec_field, center = receptive_field.get_receptive_field(convnet,imsize,len(convnet)-1, x,y)
+                    center = [int(round(val)) for val in center]
+                    range_x = [max(0,center[0]-rec_field/2),min(imsize,center[0]+rec_field/2)]
+                    range_y = [max(0,center[1]-rec_field/2),min(imsize,center[1]+rec_field/2)]
+                    # print range_x,range_y
+
+                    accu[range_y[0]:range_y[1],range_x[0]:range_x[1]] = accu[range_y[0]:range_y[1],range_x[0]:range_x[1]]+mean_ent[y,x]
+
+                    count[range_y[0]:range_y[1],range_x[0]:range_x[1]] = count[range_y[0]:range_y[1],range_x[0]:range_x[1]]+1
+        
+            count[count==0]=1.
+            heat_map = accu/count
+            file_pre = os.path.join(out_dir_curr,str(idx)+'_')
+            # out_file = os.path.join(out_dir,emo_str.lower()+'.png')
+            
+            # visualize.plot_colored_mats(out_file,heat_map,0,1, title=emo_str)
+            heat_map = visualize.getHeatMap(heat_map)*255
+
+            avg_im = scipy.misc.imread(rel_im[idx])
+            # scipy.misc.imread(os.path.join(in_dir_mean,emo_str.lower()+'.png'))
+            avg_im = avg_im[:,:,np.newaxis]
+            avg_im = np.concatenate([avg_im,avg_im,avg_im],2)
+    #     # print avg_im.shape, np.min(avg_im),np.max(avg_im)
+        
+    #     for alpha in np.arange(0.1,1.0,0.1):
+            alpha = 0.5
+            out_file_heat = file_pre+'_heat_'+str(alpha)+'.png'
+            print out_file_heat
+            visualize.fuseAndSave(avg_im,heat_map,alpha,out_file_curr=out_file_heat)
+    
+        visualize.writeHTMLForFolder(out_dir_curr,'.png')
+        raw_input()
+                
+
+    # print mean_ent.shape
+
+    
 
 def main():
-    plot_specific_patches()
+    make_ent_rec_win_accu_individual()
+    # make_ent_rec_win_accu()
+    # print 'hello'
+    # make_avg_face()
+    # plot_specific_patches()
     # get_entropy_map()
     # get_entropy_table()
     # load_mats_au()

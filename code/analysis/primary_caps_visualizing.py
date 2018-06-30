@@ -51,10 +51,10 @@ def get_caps_compiled(routed = False):
     caps = []
     for caps_file in caps_files:
         caps.append(np.load(caps_file))
-    print len(caps)
-    print caps[0].shape
+    # print len(caps)
+    # print caps[0].shape
     caps = np.concatenate(caps,0)
-    print caps.shape
+    # print caps.shape
     if routed:
         return caps, test_file, convnet, imsize, routes
     else:

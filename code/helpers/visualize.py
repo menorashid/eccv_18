@@ -39,10 +39,21 @@ def writeHTML(file_name,im_paths,captions,height=200,width=200):
     f.close();
 
 def getHeatMap(arr,max_val=255):
-    cmap = plt.get_cmap('jet')
-    rgba_img = cmap(arr)
-    rgb_img = np.delete(rgba_img, 3, 2)
-    rgb_img = rgb_img*max_val
+    # cmap = plt.get_cmap('jet')
+    import matplotlib as mpl
+
+    norm = mpl.colors.Normalize(vmin=np.min(arr), vmax=np.max(arr))
+    rgb_img = mpl.cm.ScalarMappable(norm=norm, cmap=mpl.cm.Blues).to_rgba(arr)
+    rgb_img = rgb_img[:,:,:3]
+    # print rgb_img.shape
+    # axes[2].axvline(g2, color=cm.ScalarMappable(norm=norm, cmap=cm.jet).to_rgba(g2))
+
+
+
+    # print cmap
+    # rgba_img = cmap(arr)
+    # rgb_img = np.delete(rgba_img, 3, 2)
+    # rgb_img = rgb_img*max_val
     # print rgb_img.shape,rgba_img.shape
     return rgb_img
 
@@ -375,9 +386,9 @@ def plotImageAndAnno(im_file,out_file,anno,color_curr=(0,255,0)):
 
 
 def plot_colored_mats(out_file, mat_curr, min_val, max_val, title='', cmap=plt.cm.Blues):
-    
+
     plt.imshow(mat_curr, interpolation='nearest', cmap=cmap)
-    plt.clim(min_val,max_val)
+    plt.clim(min_val,max_val) 
     plt.title(title)
     plt.colorbar()
     

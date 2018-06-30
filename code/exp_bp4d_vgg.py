@@ -40,7 +40,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             if align:
                 type_data = 'train_test_files_256_color_align'; n_classes = 12;
             else:
-                type_data = 'train_test_files_256_color_nodetect'; 
+                type_data = 'train_test_files_256_color_nodetect'; n_classes = 12;
             pre_pend = 'bp4d_256_'+type_data+'_'
             binarize = False
         else:
@@ -115,10 +115,11 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         class_weights = util.get_class_weights_au(util.readLinesFromFile(train_file))
         
-        if more_aug:
+        data_transforms = {}
+        if more_aug=='MORE':
             print more_aug
             list_of_to_dos = ['flip','rotate','scale_translate']            
-            data_transforms = {}
+            
             data_transforms['train']= transforms.Compose([
                 lambda x: augmenters.random_crop(x,im_size),
                 lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
@@ -131,7 +132,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             ])
             train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'])
             test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
-        else:
+        elif more_aug=='LESS':
             data_transforms['train']= transforms.Compose([
                 transforms.ToPILImage(),
                 # transforms.Resize((im_resize,im_resize)),
@@ -153,7 +154,23 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
 
             train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
             test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
-            
+        elif more_aug=='NONE':
+            print 'NO AUGING'
+            data_transforms['train']= transforms.Compose([
+                transforms.ToTensor(),
+                lambda x: x*255
+            ])
+            data_transforms['val']= transforms.Compose([
+                transforms.ToTensor(),
+                lambda x: x*255
+                ])
+            train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'], resize = im_size)
+            test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
+        else:
+            raise ValueError('more_aug not valid')
+
+
+
         if dropout is not None:
             print 'RECONS',reconstruct
             network_params = dict(n_classes=n_classes,pool_type='max',r=route_iter,init=init,class_weights = class_weights, reconstruct = reconstruct,loss_weights = loss_weights,std_div = std_div, dropout = dropout)
@@ -210,9 +227,9 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         # util.writeFile(param_file,all_lines)
 
         # if reconstruct:
-        # train_model_recon(**train_params)
+        train_model_recon(**train_params)
 
-        # test_model_recon(**test_params)
+        test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
         # else:
@@ -398,7 +415,7 @@ def save_test_results(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_b
 
 
 
-def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None,exp=False, disfa = False,vgg_base_file = None,vgg_base_file_str = None, mean_file = None, std_file=None, aug_more = False):
+def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None,exp=False, disfa = False,vgg_base_file = None,vgg_base_file_str = None, mean_file = None, std_file=None, aug_more = False, align = True):
     out_dirs = []
 
     out_dir_meta = '../experiments/'+model_name+str(route_iter)
@@ -422,7 +439,10 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
         binarize = True
     else:
         dir_files = '../data/bp4d'
-        type_data = 'train_test_files_110_gray_align'; n_classes = 12;
+        if align:
+            type_data = 'train_test_files_110_gray_align'; n_classes = 12;
+        else:
+            type_data = 'train_test_files_110_gray_nodetect'; n_classes = 12;
         pre_pend = 'bp4d_'+type_data+'_'
         binarize = False
             
@@ -430,10 +450,11 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
     criterion_str = criterion
 
     init = False
-    if aug_more:
-        aug_str = 'cropkhAugNoColor'
-    else:
-        aug_str = 'flipCrop'
+    aug_str = aug_more
+    # if aug_more:
+    #     aug_str = 'cropkhAugNoColor'
+    # else:
+    #     aug_str = 'flipCrop'
 
     strs_append = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,class_weights,aug_str,criterion_str,init,'wdecay',wdecay,num_epochs]+dec_after+lr+['lossweights']+loss_weights+[vgg_base_file_str]])
     
@@ -481,11 +502,13 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
         print test_file
         print mean_file
         print std_file
+        # raw_input()
 
         class_weights = util.get_class_weights_au(util.readLinesFromFile(train_file))
         
         data_transforms = {}
-        if aug_more:
+        if aug_more == 'cropkhAugNoColor':
+            train_resize = None
             print 'AUGING MORE'
             list_of_todos = ['flip','rotate','scale_translate']
             
@@ -496,20 +519,29 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
                 transforms.ToTensor(),
                 lambda x: x*255,
             ])
-        else:
+        elif aug_more == 'cropFlip':
+            train_resize = None
             data_transforms['train']= transforms.Compose([
                 lambda x: augmenters.random_crop(x,im_size),
                 lambda x: augmenters.horizontal_flip(x),
                 transforms.ToTensor(),
                 lambda x: x*255,
             ])
-        
+        elif aug_more =='NONE':
+            train_resize = im_size
+            data_transforms['train']= transforms.Compose([
+                transforms.ToTensor(),
+                lambda x: x*255,
+            ])            
+        else:
+            raise ValueError('aug_more is problematic')
+
         data_transforms['val']= transforms.Compose([
             transforms.ToTensor(),
             lambda x: x*255,
         ])
 
-        train_data = dataset.Bp4d_Dataset_Mean_Std_Im(train_file, mean_file, std_file, transform = data_transforms['train'], binarize = binarize)
+        train_data = dataset.Bp4d_Dataset_Mean_Std_Im(train_file, mean_file, std_file, transform = data_transforms['train'], binarize = binarize, resize = train_resize)
         test_data = dataset.Bp4d_Dataset_Mean_Std_Im(test_file, mean_file, std_file, resize= im_size, transform = data_transforms['val'], binarize = binarize)
 
         # train_data = dataset.Bp4d_Dataset_Mean_Std_Im(test_file, mean_file, std_file, resize= im_size, transform = data_transforms['val'])
@@ -551,7 +583,7 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
                     batch_size_val = batch_size_val,
                     criterion = criterion,
                     margin_params = margin_params,
-                    network_params = network_params)
+                    network_params = network_params,barebones=True)
         # test_params_train = dict(**test_params)
         # test_params_train['test_data'] = train_data_no_t
         # test_params_train['post_pend'] = '_train'
@@ -567,7 +599,7 @@ def train_gray(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',ep
 
         # if reconstruct:
 
-        # train_model_recon(**train_params)
+        train_model_recon(**train_params)
         test_model_recon(**test_params)
         # test_model_recon(**test_params_train)
 
@@ -612,10 +644,62 @@ def train_disfa_ft():
     train_gray(0,lr=lr,route_iter = route_iter, folds= folds, model_name= model_name, epoch_stuff=epoch_stuff,res=False, class_weights = True, reconstruct = True, loss_weights = [1.,1.],exp=True, disfa = disfa, vgg_base_file = vgg_base_file,vgg_base_file_str = vgg_base_file_str, mean_file = mean_file, std_file = std_file,aug_more = True)
 
 
+def ablation_study_rebuttal():
+    wdecay = 0
+    route_iter = 3
+    folds =[2]
+    model_name =  'vgg_capsule_7_3' 
+    epoch_stuff = [350,1]
+    reconstruct = False
+    loss_weights = [1.,0.1]
+    exp = True
+    align = True
+    more_aug = 'MORE'
+    lr = [0.0001,0.001,0.001]
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug)
+
+def ablation_study_rebuttal_gray():
+    wdecay = 0
+    lr = [0.001,0.001,0.001]
+    loss_weights = [1.0,1.0]
+    exp = True
+    epoch_stuff = [350,10]
+    reconstruct = True
+    aug_more = 'NONE'
+    folds = [2]
+    route_iter = 3
+    model_name = 'khorrami_capsule_7_3_gray'
+    align = True
+
+    train_gray(wdecay = wdecay,
+                lr = lr,
+                route_iter = route_iter,
+                folds = folds,
+                model_name = model_name,
+                epoch_stuff = epoch_stuff,
+                reconstruct  = reconstruct ,
+                loss_weights  = loss_weights ,
+                exp = exp,
+                aug_more  = aug_more, align = align )
+
+
 def main():
     
-    # train_disfa_ft()
-    # return
+    ablation_study_rebuttal_gray()
+
+    return
+
 
 
     epoch_stuff = [6,6]

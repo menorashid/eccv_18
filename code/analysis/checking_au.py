@@ -225,8 +225,14 @@ def script_print_f1_etc():
 	# folds = [0,1,2]
 	# eer = False
 
-	dir_exp_pre = 'disfa_256_train_test_8_au_all_method_256_color_align_'
-	dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_0.1_True'
+	# dir_exp_pre = 'disfa_256_train_test_8_au_all_method_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_True_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_lossweights_1.0_0.1_True'
+	# models_test = [0]
+	# folds = [0,1,2]
+	# eer = False
+
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_nodetect_'
+	dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_NONE_None_lossweights_1.0_0.1'
 	models_test = [0]
 	folds = [0,1,2]
 	eer = False
@@ -237,6 +243,13 @@ def script_print_f1_etc():
 	# models_test = [9]
 	# folds = [0,1,2]
 	# eer = False
+
+	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	dir_exp_post = '_reconstruct_True_False_NONE_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	models_test = [9]
+	folds = [0,1,2]
+	eer = False
 
 	for model_test in models_test:
 		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
@@ -332,6 +345,9 @@ def get_auc(pred,gt):
     return ap
 
 def main():
+
+	script_print_f1_etc()
+	return 
 
 	out_dir_train = '../experiments/vgg_capsule_7_3_with_dropout3/bp4d_256_train_test_files_256_color_align_2_reconstruct_False_True_all_aug_marginmulti_False_wdecay_0_6_step_6_0.1_0.0001_0.001_0.001_True_0'
 	log_file = os.path.join(out_dir_train,'log.txt')

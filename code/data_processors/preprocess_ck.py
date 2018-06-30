@@ -485,7 +485,7 @@ def get_au_counts_ck():
     rel_rows = annos[bin_angry_annos,2:]
     print rel_rows.shape
     print np.sum(rel_rows,0)
-    
+
 
     # print annos.shape
     # print np.max(annos,0)
@@ -493,9 +493,55 @@ def get_au_counts_ck():
 
 
 
+def make_avg_face():
+    test_pre = '../data/ck_96/train_test_files/test_'
+    out_dir = '../data/ck_96/mean_expressions'
+    util.mkdir(out_dir)
+
+    im_files = []
+    annos = []
+    for num in range(10):
+        lines = util.readLinesFromFile(test_pre+str(num)+'.txt')
+        im_files = im_files+[line_curr.split(' ')[0] for line_curr in lines]
+        annos = annos +  [int(line_curr.split(' ')[1]) for line_curr in lines]
+    print len(im_files)
+    print im_files[0]
+    print annos[0]
+    im_files = np.array(im_files)
+    annos = np.array(annos)
+    num_emos = 8
+    emo_strs = ['Neutral','Anger', 'Contempt','Disgust', 'Fear', 'Happiness', 'Sadness', 'Surprise']
+
+    for emo_idx, emo_str in enumerate(emo_strs):
+        rel_im = im_files[annos==emo_idx]
+        
+        im_all =[]
+        for im in rel_im:
+            im = scipy.misc.imread(im).astype(np.float32)
+            im = im[:,:,np.newaxis]
+            im_all.append(im)
+
+        # print len(im_all)
+        print im_all[0].shape
+        im_all = np.concatenate(im_all,2)
+        
+
+        print im_all.shape, np.min(im_all),np.max(im_all)
+        mean_val = np.mean(im_all,axis=2)
+        print mean_val.shape,np.min(mean_val),np.max(mean_val)
+
+        # std_val = np.std(im_all,axis=2)
+        # print std_val.shape,np.min(std_val),np.max(std_val)
+        out_file_mean = os.path.join(out_dir,emo_str.lower()+'.png')
+        print out_file_mean
+        cv2.imwrite(out_file_mean,mean_val)
+        # cv2.imwrite(out_file_std,std_val)
+
+
 
 def main():
-    get_au_counts_ck()
+    make_avg_face()
+    # get_au_counts_ck()
     # write_non_peak_files()
 
     # saveCKresizeImages()

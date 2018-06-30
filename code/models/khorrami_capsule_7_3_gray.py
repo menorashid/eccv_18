@@ -45,8 +45,8 @@ class Vgg_Capsule(Dynamic_Capsule_Model_Super):
 
 
         self.features = []
-        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r, dropout = 0))
-        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r, dropout = dropout))
+        self.features.append(CapsuleLayer(32, 1, 128, 8, kernel_size=7, stride=3, num_iterations=r))
+        self.features.append(CapsuleLayer(n_classes, 32, 8, 32, kernel_size=6, stride=1, num_iterations=r))
         self.features = nn.Sequential(*self.features)
         
             

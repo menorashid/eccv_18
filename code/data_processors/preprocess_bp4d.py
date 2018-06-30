@@ -9,7 +9,7 @@ import numpy as np
 import random
 import skimage.transform
 import multiprocessing
-import face_alignment
+# import face_alignment
 import dlib
 import cv2
 import shutil
@@ -519,10 +519,16 @@ def save_color_as_gray((in_file,out_file,im_size,idx_file_curr)):
 
 def script_make_im_gray():
     dir_meta = '../data/bp4d'
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
-    out_dir_files_new = os.path.join(dir_meta, 'train_test_files_110_gray_align')
-    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_align')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_align')
+    # out_dir_files_new = os.path.join(dir_meta, 'train_test_files_110_gray_align')
+    # out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
+
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_color_nodetect')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_color_nodetect')
+    out_dir_files_new = os.path.join(dir_meta, 'train_test_files_110_gray_nodetect')
+    out_dir_im_new = os.path.join(dir_meta, 'preprocess_im_110_gray_nodetect')
     util.mkdir(out_dir_files_new)
 
     num_folds = 3
@@ -582,8 +588,12 @@ def make_train_test_files():
     # out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_align')
     # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
 
-    out_dir_im = os.path.join(dir_meta, 'preprocess_im_256_color_align')
-    out_dir_files = os.path.join(dir_meta, 'train_test_files_256_color_align')
+    # out_dir_im = os.path.join(dir_meta, 'preprocess_im_256_color_align')
+    # out_dir_files = os.path.join(dir_meta, 'train_test_files_256_color_align')
+
+    out_dir_im = os.path.join(dir_meta, 'preprocess_im_110_gray_nodetect')
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_nodetect')
+
 
     replace_str = '../data/bp4d/BP4D/BP4D-training'
     util.mkdir(out_dir_files)
@@ -973,6 +983,8 @@ def sanity_check():
 
 
 def main():
+    # make_train_test_files()
+    # script_make_im_gray()
     # script_save_align_im_diff_scale()
     # save_kp_orginal_im()
 
@@ -994,7 +1006,7 @@ def main():
 
 
     # save_kp_orginal_im()
-    make_train_test_files()
+    # make_train_test_files()
     # script_save_align_im()
 
     # script_make_im_gray()
@@ -1003,9 +1015,10 @@ def main():
     # script_save_cropped_faces()
     # make_train_test_files()
 
-    # dir_meta = '../data/bp4d'
-    # out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_align')
-    # make_select_mean_files(out_dir_files,3)
+    dir_meta = '../data/bp4d'
+    out_dir_files = os.path.join(dir_meta, 'train_test_files_110_gray_nodetect')
+    make_select_mean_files(out_dir_files,3)
+    # make_select_mean_files(dir_files,num_folds)
 
 
     return
