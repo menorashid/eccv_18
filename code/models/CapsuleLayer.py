@@ -144,6 +144,11 @@ class CapsuleLayer(nn.Module):
 
                     # print x.size()
                     logits = Variable(torch.zeros(*priors.size())).cuda()
+
+                    # print 'window.size()',window.size()
+                    # print 'priors.size()',priors.size()
+                    # print 'logits.size()',logits.size()
+
                     for i in range(self.num_iterations):
                         probs = softmax(logits, dim=2)
                         # print 'iter',i,probs.size(),torch.min(probs),torch.max(probs)

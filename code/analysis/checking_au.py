@@ -34,13 +34,20 @@ def collate_files(test_dirs):
 	pred_all = np.concatenate(pred_all,0)
 	return labels_all, pred_all
 
-def compile_and_print_stats(test_dirs,out_file,eer = True):
+def compile_and_print_stats(test_dirs,out_file,eer = True,sig_it=False):
 	labels_all, pred_all = collate_files(test_dirs)
 	str_print = []
-	pred_bin = pred_all
+	if sig_it:
+		pred_bin = 1 / (1 + np.exp(-pred_all))
+	else:
+		pred_bin = pred_all
+	# np.sigmoid(pred_all)
 	
-	print 'labels_all.shape', labels_all.shape
+	print 'labels_all.shape', labels_all.shape, np.unique(labels_all)
 	print 'pred_all.shape', pred_all.shape
+	print np.min(pred_bin), np.max(pred_bin), np.unique(pred_bin)
+	print np.min(labels_all), np.max(labels_all)
+
 	# raw_input()
 	# pred_bin[pred_bin<=0.5]=0
 	# pred_bin[pred_bin>0.5]=1
@@ -54,6 +61,8 @@ def compile_and_print_stats(test_dirs,out_file,eer = True):
 	else:
 		pred_bin[pred_bin<=0.5]=0
 		pred_bin[pred_bin>0.5]=1
+		# pred_bin[pred_bin<=0]=0
+		# pred_bin[pred_bin>0]=1
 		f1_per_class = sklearn.metrics.f1_score(labels_all,pred_bin,average = None)
 		f1_avg= np.mean(f1_per_class)
 
@@ -90,7 +99,7 @@ def compile_and_print_stats(test_dirs,out_file,eer = True):
 	print str_print[-1]
 	print ''
 	str_print.append( '')
-	# util.writeFile(out_file,str_print)
+	util.writeFile(out_file,str_print)
 
 def calculate_f1_curve_eer(labels_all,pred_all):
 	# labels_all, pred_all = collate_files(test_dirs)
@@ -231,11 +240,11 @@ def script_print_f1_etc():
 	# folds = [0,1,2]
 	# eer = False
 
-	dir_exp_pre = 'bp4d_256_train_test_files_256_color_nodetect_'
-	dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_NONE_None_lossweights_1.0_0.1'
-	models_test = [0]
-	folds = [0,1,2]
-	eer = False
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_nodetect_'
+	# dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_1_exp_0.96_350_1e-06_0.0001_0.001_0.001_NONE_None_lossweights_1.0_0.1'
+	# models_test = [0]
+	# folds = [0,1,2]
+	# eer = False
 
 	# dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
 	# dir_exp_pre = 'disfa_train_test_8_au_all_method_110_gray_align_'
@@ -244,12 +253,73 @@ def script_print_f1_etc():
 	# folds = [0,1,2]
 	# eer = False
 
-	dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
-	dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
-	dir_exp_post = '_reconstruct_True_False_NONE_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	# dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	# dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_False_NONE_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+
+	# dir_meta = '../experiments/khorrami_capsule_7_3_gray3'
+	# dir_exp_pre = 'bp4d_train_test_files_110_gray_align_'
+	# dir_exp_post = '_reconstruct_True_False_NONE_marginmulti_False_wdecay_0_10_exp_0.96_350_1e-06_0.001_0.001_0.001_lossweights_1.0_1.0_None'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_5_0.1_0_0.001_0.001_LESS_None_lossweights_1.0_0.1'
 	models_test = [9]
 	folds = [0,1,2]
 	eer = False
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0_0.0001_0.001_0.001_LESS_None_lossweights_1.0_0.1'
+	models_test = [9]
+	folds = [0,1,2]
+	eer = False
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_0.0001_0.001_0.001_LESS_None_lossweights_1.0_0.1'
+	models_test = [1]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_1e-05_0.001_0.001_LESS_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_1e-05_0.001_0.001_LESS_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	# dir_meta = '../experiments/vgg_capsule_7_3_face_split_base3'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_1e-05_0.001_0.001_LESS_None_lossweights_1.0_0.1'
+	# models_test = [4]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False
+
+	# dir_meta = '../experiments/vgg_imagenet_finetune'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_False_MultiLabelSoftMarginLoss_10_step_10_0.1_0_0.001_0.001_0.001_False'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = True
 
 	for model_test in models_test:
 		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
@@ -260,7 +330,8 @@ def script_print_f1_etc():
 			test_dirs.append(test_dir)
 			print test_dir
 		print 'fold_num,model_test', folds,model_test
-		compile_and_print_stats(test_dirs,out_file, eer)
+		print out_file
+		compile_and_print_stats(test_dirs,out_file, eer,sig_it)
 		# calculate_f1_curve_eer(test_dirs,out_file)
 		print '___'
 

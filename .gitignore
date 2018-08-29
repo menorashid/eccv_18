@@ -61,3 +61,6 @@ capsule-networks-master
 recovery
 recovery_script.sh
 paper_writing
+pia_plots
+unsup_video_lstm
+code/.dropbox-dist

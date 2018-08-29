@@ -73,11 +73,21 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         if res:
 
-            strs_appendc = '_'+'_'.join([str(val) for val in ['reconstruct',reconstruct,True,'all_aug',criterion_str,init,'wdecay',wdecay,600,'step',600,0.1]+lr_p])
-            out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_appendc)
-            model_file = os.path.join(out_dir_train,'model_300.pt')
-            epoch_start = 300
-            lr =[0.1*lr_curr for lr_curr in lr_p]
+            strs_append_list_c = ['reconstruct',reconstruct,False,'all_aug',criterion_str,init,'wdecay',wdecay,10]+['step',5,0.1]+lr+[more_aug]+[dropout]
+            # print dec_after
+            # raw_input()
+            if loss_weights is not None:
+                strs_append_list_c = strs_append_list_c+['lossweights']+loss_weights
+            
+            strs_append_c = '_'+'_'.join([str(val) for val in strs_append_list_c])
+            out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append_c)
+            
+            model_file = os.path.join(out_dir_train,'model_4.pt')
+            epoch_start = 4
+            print 'FILE EXISTS', model_file, epoch_start
+            
+            # raw_input()
+            
         else:
             model_file = None    
 
@@ -99,7 +109,45 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         train_file = os.path.join(dir_files,type_data,'train_'+str(split_num)+'.txt')
         test_file = os.path.join(dir_files,type_data,'test_'+str(split_num)+'.txt')
 
-        if model_name.startswith('vgg'):
+        data_transforms = None
+        if model_name.startswith('vgg_capsule_7_3_imagenet'):
+            # mean_std = np.array([[93.5940,104.7624,129.1863],[1.,1.,1.]]) #bgr
+            # std_div = np.array([0.225*255,0.224*255,0.229*255])
+            # print std_div
+            # raw_input()
+            mean_std=np.array([[0.485, 0.456, 0.406],
+                        [0.229, 0.224, 0.225]])
+
+            bgr= False
+            normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                     std=[0.229, 0.224, 0.225])
+            std_div = None
+
+            data_transforms = {}
+            data_transforms['train'] = [ transforms.ToPILImage(),
+                transforms.RandomCrop(im_size),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomRotation(15),
+                transforms.ColorJitter(),
+                transforms.ToTensor(),
+                normalize]
+            data_transforms['val'] = [transforms.ToPILImage(),
+                transforms.Resize((im_size,im_size)),
+                transforms.ToTensor(),
+                normalize]
+            
+            if torch.version.cuda.startswith('9'):
+                data_transforms['train'].append(lambda x: x.float())
+                data_transforms['val'].append(lambda x: x.float())
+
+            data_transforms['train']= transforms.Compose(data_transforms['train'])
+            data_transforms['val']= transforms.Compose(data_transforms['val'])
+
+            train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
+            test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
+
+
+        elif model_name.startswith('vgg'):
             mean_std = np.array([[93.5940,104.7624,129.1863],[1.,1.,1.]]) #bgr
             std_div = np.array([0.225*255,0.224*255,0.229*255])
             print std_div
@@ -115,59 +163,83 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         class_weights = util.get_class_weights_au(util.readLinesFromFile(train_file))
         
-        data_transforms = {}
-        if more_aug=='MORE':
-            print more_aug
-            list_of_to_dos = ['flip','rotate','scale_translate']            
-            
-            data_transforms['train']= transforms.Compose([
-                lambda x: augmenters.random_crop(x,im_size),
-                lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
-                transforms.ToTensor(),
-                lambda x: x*255,
-            ])
-            data_transforms['val']= transforms.Compose([
-                transforms.ToTensor(),
-                lambda x: x*255,
-            ])
-            train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'])
-            test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
-        elif more_aug=='LESS':
-            data_transforms['train']= transforms.Compose([
-                transforms.ToPILImage(),
-                # transforms.Resize((im_resize,im_resize)),
-                transforms.RandomCrop(im_size),
-                transforms.RandomHorizontalFlip(),
-                transforms.RandomRotation(15),
-                transforms.ColorJitter(),
-                transforms.ToTensor(),
-                lambda x: x*255,
-                transforms.Normalize(mean_std[0,:],mean_std[1,:]),
-            ])
-            data_transforms['val']= transforms.Compose([
-                transforms.ToPILImage(),
-                transforms.Resize((im_size,im_size)),
-                transforms.ToTensor(),
-                lambda x: x*255,
-                transforms.Normalize(mean_std[0,:],mean_std[1,:]),
-                ])
+        if data_transforms is None:
+            data_transforms = {}
+            if more_aug=='MORE':
+                print more_aug
+                list_of_to_dos = ['flip','rotate','scale_translate']            
+                
+                # print torch.version.cuda
+                # raw_input()
+                if torch.version.cuda.startswith('9'):
+                    # print 'HEYLO'
+                    # raw_input()
+                    data_transforms['train']= transforms.Compose([
+                        # lambda x: augmenters.random_crop(x,im_size),
+                        # lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
+                        transforms.ToTensor(),
+                        lambda x: x.float()
+                    ])
+                    data_transforms['val']= transforms.Compose([
+                        transforms.ToTensor(),
+                        lambda x: x.float()
+                    ])
+                else:
+                    
+                    data_transforms['train']= transforms.Compose([
+                        lambda x: augmenters.random_crop(x,im_size),
+                        lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
+                        transforms.ToTensor(),
+                        lambda x: x*255,
+                    ])
+                    data_transforms['val']= transforms.Compose([
+                        transforms.ToTensor(),
+                        lambda x: x*255,
+                    ])
 
-            train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
-            test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
-        elif more_aug=='NONE':
-            print 'NO AUGING'
-            data_transforms['train']= transforms.Compose([
-                transforms.ToTensor(),
-                lambda x: x*255
-            ])
-            data_transforms['val']= transforms.Compose([
-                transforms.ToTensor(),
-                lambda x: x*255
+
+
+
+
+
+                train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'])
+                test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
+            elif more_aug=='LESS':
+                data_transforms['train']= transforms.Compose([
+                    transforms.ToPILImage(),
+                    # transforms.Resize((im_resize,im_resize)),
+                    transforms.RandomCrop(im_size),
+                    transforms.RandomHorizontalFlip(),
+                    transforms.RandomRotation(15),
+                    transforms.ColorJitter(),
+                    transforms.ToTensor(),
+                    lambda x: x*255,
+                    transforms.Normalize(mean_std[0,:],mean_std[1,:]),
                 ])
-            train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'], resize = im_size)
-            test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
-        else:
-            raise ValueError('more_aug not valid')
+                data_transforms['val']= transforms.Compose([
+                    transforms.ToPILImage(),
+                    transforms.Resize((im_size,im_size)),
+                    transforms.ToTensor(),
+                    lambda x: x*255,
+                    transforms.Normalize(mean_std[0,:],mean_std[1,:]),
+                    ])
+
+                train_data = dataset.Bp4d_Dataset(train_file, bgr = bgr, binarize = binarize, transform = data_transforms['train'])
+                test_data = dataset.Bp4d_Dataset(test_file, bgr = bgr, binarize= binarize, transform = data_transforms['val'])
+            elif more_aug=='NONE':
+                print 'NO AUGING'
+                data_transforms['train']= transforms.Compose([
+                    transforms.ToTensor(),
+                    lambda x: x*255
+                ])
+                data_transforms['val']= transforms.Compose([
+                    transforms.ToTensor(),
+                    lambda x: x*255
+                    ])
+                train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'], resize = im_size)
+                test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
+            else:
+                raise ValueError('more_aug not valid')
 
 
 
@@ -694,9 +766,143 @@ def ablation_study_rebuttal_gray():
                 aug_more  = aug_more, align = align )
 
 
-def main():
+def imagenet_experiments():
+    wdecay = 0
+    route_iter = 3
+    folds =[2]
+    model_name =  'vgg_capsule_7_3_imagenet_split_base' 
+    reconstruct = True
+    loss_weights = [1.,0.1]
     
-    ablation_study_rebuttal_gray()
+    epoch_stuff = [350,5]
+    exp = True
+    model_to_test = None
+
+    # epoch_stuff = [10,10]
+    # exp = False
+
+    align = True
+    more_aug = 'LESS'
+    lr = [1e-4,1e-4,1e-3,1e-3]
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        model_to_test = model_to_test)
+
+def imagenet_vgg_no_ft_resume():
+    wdecay = 0
+    route_iter = 3
+    folds =[2]
+    model_name =  'vgg_capsule_7_3_imagenet' 
+    reconstruct = True
+    loss_weights = [1.,0.1]
+    
+    # epoch_stuff = [350,5]
+    # exp = True
+
+    epoch_stuff = [10,10]
+    exp = False
+    align = True
+    more_aug = 'LESS'
+    lr = [0,0.001,0.001]
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        res = True,
+        model_to_test = None)
+
+    # bp4d_256_train_test_files_256_color_align_2_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_5_0.1_0_0.001_0.001_LESS_None_lossweights_1.0_0.1
+
+def imagenet_vgg_ft_resume():
+    wdecay = 0
+    route_iter = 3
+    folds =[0,1,2]
+    model_name =  'vgg_capsule_7_3_imagenet' 
+    reconstruct = True
+    loss_weights = [1.,0.1]
+    
+    # epoch_stuff = [350,5]
+    # exp = True
+
+    epoch_stuff = [10,10]
+    exp = False
+    align = True
+    more_aug = 'LESS'
+    lr = [0.0001,0.001,0.001]
+    res = True
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        res = res)
+
+def face_experiments():
+    wdecay = 0
+    route_iter = 3
+    folds =[0,1,2]
+    model_name =  'vgg_capsule_7_3_face_split_base' 
+    reconstruct = True
+    loss_weights = [1.,0.1]
+    
+    epoch_stuff = [350,5]
+    exp = True
+    model_to_test = 0
+
+    # epoch_stuff = [10,10]
+    # exp = False
+
+    align = True
+    more_aug = 'LESS'
+    lr = [0,1e-5,0.001,0.001]
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        model_to_test = model_to_test)
+
+
+def main():
+    imagenet_experiments()
+    # face_experiments()
+    # imagenet_experiments()
+    # imagenet_vgg_ft_resume()
+    # imagenet_vgg_no_ft_resume()
+    # imagenet_experiments()
+    # ablation_study_rebuttal_gray()
 
     return
 

@@ -158,12 +158,16 @@ def train_model(out_dir_train,
         # margin = margin_params['start']
         criterion = Spread_Loss(**margin_params)
 
+    criterion = criterion.cuda()
+
     recons = False
     # print network_params
     if model_name.endswith('recon') or (model_name.startswith('dynamic_capsules') and network_params['reconstruct']):
         recons=True
 
     print 'RECON',recons
+
+
     for num_epoch in range(epoch_start,num_epochs):
 
         # if isinstance(criterion,Spread_Loss):
@@ -192,9 +196,13 @@ def train_model(out_dir_train,
             elif criterion =='margin':
                 loss = model.margin_loss(model(data), labels) 
             else:    
-                # out = model(data)
+                out = model(data)
                 # print torch.min(out),torch.max(out)
-                loss = criterion(model(data), labels)    
+                # print out.size()
+                # print labels.size()
+                # raw_input()
+                loss = criterion(out, labels)    
+
             
 
             loss_iter = loss.data[0]
@@ -452,7 +460,8 @@ def test_model(out_dir_train,
                 margin_params  = None,
                 network_params = None,
                 post_pend = '',
-                model_nums = None):
+                model_nums = None,
+                barebones = True):
 
     out_dir_results = os.path.join(out_dir_train,'results_model_'+str(model_num)+post_pend)
     util.mkdir(out_dir_results)
@@ -478,12 +487,12 @@ def test_model(out_dir_train,
     model = torch.load(model_file)
     model.cuda()
     model.eval()
-    
+    criterion = criterion.cuda()
     # criterion = nn.CrossEntropyLoss()
     
     predictions = []
     labels_all = []
-    out_all = []
+    # out_all = []
     if criterion=='spread':
         criterion = Spread_Loss(**margin_params)
 
@@ -492,9 +501,14 @@ def test_model(out_dir_train,
         recons=True
 
     print 'RECON',recons
+    
+    num_correct =0
+    num_total = 0
+    loss_epoch = []
 
     for num_iter,batch in enumerate(test_dataloader):
-                
+        predictions = []
+        labels_all = []        
         # batch = test_dataloader.next() 
         labels_all.append(batch['label'].numpy())
 
@@ -510,9 +524,10 @@ def test_model(out_dir_train,
         if recons:
             output = output[0]
         out = output.data.cpu().numpy()
-        out_all.append(out)
+        # out_all.append(out)
         
-        predictions.append(np.argmax(out,1))
+        predictions.append(out)
+            # np.argmax(out,1))
         if isinstance(criterion,Spread_Loss):
             if isinstance(model_num,int):
                 loss = criterion(model(data), labels, model_num)    
@@ -533,21 +548,34 @@ def test_model(out_dir_train,
         log_arr.append(str_display)
         print str_display
         
+        # labels_all = np.concatenate(labels_all)
+        labels_all = labels_all[0]
+        # predictions = np.concatenate(predictions)
+        predictions = predictions[0]
+
+        num_correct = num_correct+ np.sum(np.argmax(predictions,1)==labels_all)
+        num_total = num_total+labels_all.size
+
+        print os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all.shape
+        np.save(os.path.join(out_dir_results,'labels_all_'+str(num_iter)+'.npy'),labels_all)
+        np.save(os.path.join(out_dir_results,'predictions_'+str(num_iter)+'.npy'),predictions)
+                
 
         util.writeFile(log_file, log_arr)
     
-    out_all = np.concatenate(out_all,0)
-    predictions = np.concatenate(predictions)
-    labels_all = np.concatenate(labels_all)
+    # out_all = np.concatenate(out_all,0)
+    # predictions = np.concatenate(predictions)
+    # labels_all = np.concatenate(labels_all)
     
-    np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
-    np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
-    np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
+    # np.save(os.path.join(out_dir_results, 'out_all.npy'),out_all)
+    # np.save(os.path.join(out_dir_results, 'predictions.npy'),predictions)
+    # np.save(os.path.join(out_dir_results, 'labels_all.npy'),labels_all)
     
-    if len(labels_all.shape)>1:
-        accuracy = get_auc(out_all,labels_all)
-    else:
-        accuracy = np.sum(predictions==labels_all)/float(labels_all.size)
+    # if len(labels_all.shape)>1:
+    #     accuracy = get_auc(predictions,labels_all)
+    # else:
+    accuracy = num_correct/float(num_total)
+        # np.sum(predictions==labels_all)/float(labels_all.size)
 
     str_display = 'accuracy: %.4f' %(accuracy)
     print str_display
@@ -877,7 +905,7 @@ def train_model_recon(out_dir_train,
 
             # raw_input()
             
-            if criterion=='marginmulti':
+            if criterion == 'marginmulti':
                 labels = Variable(batch['label'].float().cuda())
             else:
                 labels = Variable(torch.LongTensor(batch['label']).cuda())
