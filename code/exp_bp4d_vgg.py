@@ -175,8 +175,8 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                     # print 'HEYLO'
                     # raw_input()
                     data_transforms['train']= transforms.Compose([
-                        # lambda x: augmenters.random_crop(x,im_size),
-                        # lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
+                        lambda x: augmenters.random_crop(x,im_size),
+                        lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
                         transforms.ToTensor(),
                         lambda x: x.float()
                     ])
@@ -185,7 +185,6 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                         lambda x: x.float()
                     ])
                 else:
-                    
                     data_transforms['train']= transforms.Compose([
                         lambda x: augmenters.random_crop(x,im_size),
                         lambda x: augmenters.augment_image(x,list_of_to_dos,color=True,im_size = im_size),
@@ -205,6 +204,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                 train_data = dataset.Bp4d_Dataset_with_mean_std_val(train_file, bgr = bgr, binarize = binarize, mean_std = mean_std, transform = data_transforms['train'])
                 test_data = dataset.Bp4d_Dataset_with_mean_std_val(test_file, bgr = bgr, binarize= binarize, mean_std = mean_std, transform = data_transforms['val'], resize = im_size)
             elif more_aug=='LESS':
+                # std_div = None
                 data_transforms['train']= transforms.Compose([
                     transforms.ToPILImage(),
                     # transforms.Resize((im_resize,im_resize)),
@@ -302,21 +302,20 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         train_model_recon(**train_params)
 
         test_model_recon(**test_params)
-        # test_model_recon(**test_params_train)
 
-        # else:
-        #     train_model(**train_params)
         # test_params = dict(out_dir_train = out_dir_train,
-        #         model_num = num_epochs-1, 
-        #         train_data = train_data,
-        #         test_data = test_data,
-        #         gpu_id = 0,
-        #         model_name = model_name,
-        #         batch_size_val = batch_size_val,
-        #         criterion = criterion,
-        #         margin_params = margin_params,
-        #         network_params = network_params)
-        # test_model(**test_params)
+        #             model_num = 4, 
+        #             train_data = train_data,
+        #             test_data = test_data,
+        #             gpu_id = gpu_id,
+        #             model_name = model_name,
+        #             batch_size_val = batch_size_val,
+        #             criterion = criterion,
+        #             margin_params = margin_params,
+        #             network_params = network_params,barebones=True)
+        
+        # test_model_recon(**test_params)
+        
         
     getting_accuracy.print_accuracy(out_dir_meta,pre_pend,strs_append,folds,log='log.txt')
 
@@ -769,13 +768,13 @@ def ablation_study_rebuttal_gray():
 def imagenet_experiments():
     wdecay = 0
     route_iter = 3
-    folds =[2]
-    model_name =  'vgg_capsule_7_3_imagenet_split_base' 
+    folds =[0,1,2]
+    model_name =  'vgg_capsule_7_3_face_split_base' 
     reconstruct = True
-    loss_weights = [1.,0.1]
+    loss_weights = [1.,1.]
     
-    epoch_stuff = [350,5]
-    exp = True
+    epoch_stuff = [5,5]
+    exp = False
     model_to_test = None
 
     # epoch_stuff = [10,10]
@@ -783,7 +782,7 @@ def imagenet_experiments():
 
     align = True
     more_aug = 'LESS'
-    lr = [1e-4,1e-4,1e-3,1e-3]
+    lr = [0,1e-5,1e-4,1e-4]
 
     train_vgg(wdecay= wdecay,
         lr = lr,
@@ -815,6 +814,8 @@ def imagenet_vgg_no_ft_resume():
     more_aug = 'LESS'
     lr = [0,0.001,0.001]
 
+    print reconstruct
+    raw_input()
     train_vgg(wdecay= wdecay,
         lr = lr,
         route_iter = route_iter,
@@ -865,21 +866,20 @@ def imagenet_vgg_ft_resume():
 def face_experiments():
     wdecay = 0
     route_iter = 3
-    folds =[0,1,2]
+    folds =[0]
     model_name =  'vgg_capsule_7_3_face_split_base' 
-    reconstruct = True
+    reconstruct = False
     loss_weights = [1.,0.1]
     
-    epoch_stuff = [350,5]
-    exp = True
-    model_to_test = 0
-
+    epoch_stuff = [5,5]
+    exp = False
+    model_to_test = None
     # epoch_stuff = [10,10]
     # exp = False
 
     align = True
-    more_aug = 'LESS'
-    lr = [0,1e-5,0.001,0.001]
+    more_aug = 'MORE'
+    lr = [0,1e-5,1e-4,1e-4]
 
     train_vgg(wdecay= wdecay,
         lr = lr,
@@ -895,9 +895,11 @@ def face_experiments():
         model_to_test = model_to_test)
 
 
+
+
 def main():
-    imagenet_experiments()
-    # face_experiments()
+    # imagenet_experiments()
+    face_experiments()
     # imagenet_experiments()
     # imagenet_vgg_ft_resume()
     # imagenet_vgg_no_ft_resume()

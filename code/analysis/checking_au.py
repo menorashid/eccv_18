@@ -305,6 +305,22 @@ def script_print_f1_etc():
 	eer = False
 	sig_it = False
 
+	dir_meta = '../experiments/vgg_capsule_7_3_face_split_base3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	# dir_meta = '../experiments/vgg_capsule_7_3_face_split_base3'
+	# dir_exp_pre ='bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_1.0'
+	# models_test = [4]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False
+
 	# dir_meta = '../experiments/vgg_capsule_7_3_face_split_base3'
 	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
 	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_exp_0.96_350_1e-06_0_1e-05_0.001_0.001_LESS_None_lossweights_1.0_0.1'
