@@ -337,6 +337,84 @@ def script_print_f1_etc():
 	# eer = False
 	# sig_it = True
 
+	# vgg_capsule_7_3_imagenet_split_base_do3/bp4d_256_train_test_files_256_color_align_0_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_0.1
+
+	# dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_0.1'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False
+
+	# dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base3'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_0.1'
+	# models_test = [4]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False
+
+
+	dir_meta = '../experiments/vgg_capsule_7_3_imagenet_split_base_do3'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	# dir_meta = '../experiments/scratch_architecture_capsule_7_3_color3'
+	# dir_exp_pre = 'bp4d_110_'
+	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0.0001_0.0001_0.0001_LESS_None_lossweights_1.0_1.0'
+	# models_test = [9]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False	
+
+	# vgg_capsule_7_3_face_split_base_do3/0_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_0_1e-05_0.0001_0.0001_MORE_None_lossweights_1.0_0.1/
+
+	dir_meta = '../experiments/vgg_capsule_7_3_face_split_base_do3'
+	dir_exp_pre = 'disfa_256_train_test_8_au_all_method_256_color_align_'
+	dir_exp_post = '_reconstruct_False_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_0_1e-05_0.0001_0.0001_MORE_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False
+
+	dir_meta = '../experiments/scratch_architecture_capsule_7_3_color_transfer_conv3'
+	dir_exp_pre = 'disfa_110_train_test_8_au_all_method_110_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_1e-05_0.0001_0.0001_LESS_None_lossweights_1.0_1.0'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False	
+
+	dir_meta = '../experiments/vgg_capsule_7_3_face_split_base_do_703'
+	dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_0_1e-05_0.0001_0.0001_MORE_None_lossweights_1.0_0.1'
+	models_test = [4]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False	
+
+	dir_meta = '../experiments/scratch_architecture_capsule_7_3_color_transfer_conv3'
+	dir_exp_pre = 'disfa_110_train_test_8_au_all_method_110_color_align_'
+	dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_5_0.1_0.0001_0.0001_0.0001_LESS_None_lossweights_1.0_1.0'
+	models_test = [9]
+	folds = [0,1,2]
+	eer = False
+	sig_it = False	
+
+	# dir_meta = '../experiments/vgg_capsule_7_3_face_split_base_do3'
+	# dir_exp_pre = 'bp4d_256_train_test_files_256_color_align_'
+	# dir_exp_post = '_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_5_step_5_0.1_1e-05_1e-05_0.0001_0.0001_MORE_None_lossweights_1.0_0.1'
+	# models_test = [4]
+	# folds = [0,1,2]
+	# eer = False
+	# sig_it = False
+
+
 	for model_test in models_test:
 		out_file = os.path.join(dir_meta,dir_exp_pre+dir_exp_post[1:]+'_model_num_'+str(model_test)+'_'+str(eer)+'.txt')
 

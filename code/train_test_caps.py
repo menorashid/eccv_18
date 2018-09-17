@@ -926,7 +926,7 @@ def train_model_recon(out_dir_train,
             num_iter = num_epoch*len(train_dataloader)+num_iter_train
             for idx_loss,loss_curr in enumerate([loss, margin_loss, recon_loss]):
                 plot_arr[idx_loss][0].append(num_iter)
-                plot_arr[idx_loss][1].append(loss_curr.data)
+                plot_arr[idx_loss][1].append(float(loss_curr.data.cpu()))
             
             
             str_display = 'lr: %.6f, iter: %d, loss: %.4f, margin: %.4f, recon: %.4f' %(optimizer.param_groups[-1]['lr'],num_iter,loss_iter,margin_loss.data[0],recon_loss.data[0])
@@ -938,6 +938,29 @@ def train_model_recon(out_dir_train,
 
             if num_iter % plot_after== 0 and num_iter>0:
                 # util.writeFile(log_file, log_arr)
+                # print plot_arr[0]
+                # print len(plot_arr)
+
+                for idx_loss in range(len(plot_arr)):
+                    plot_curr = plot_arr[idx_loss]
+                    # lent = len(plot_curr[0])
+                    # print len(plot_curr[0]),len(plot_curr),
+                    # print plot_curr[0][10]
+                    last_iter = plot_curr[0][-1]
+                    plot_curr[0] = plot_curr[0][:(len(plot_curr)-plot_after)]+[last_iter]
+                    plot_curr[1] = plot_curr[1][:(len(plot_curr)-plot_after)]+[np.mean(plot_curr[1][len(plot_curr)-plot_after:])]
+                    plot_arr[idx_loss]=plot_curr
+
+                # for idx_loss in range(len(plot_val_arr)):
+                #     plot_curr = plot_val_arr[idx_loss]
+                #     if len(plot_curr)!=0:
+                #         last_iter = plot_curr[0][-1]
+                #         plot_curr[0] = plot_curr[0][:(len(plot_curr)-plot_after)]+[last_iter]
+                #         plot_curr[1] = plot_curr[1][:(len(plot_curr)-plot_after)]+[np.mean(plot_curr[1][len(plot_curr)-plot_after:])]
+                #         plot_val_arr[idx_loss]=plot_curr
+
+
+
                 for string in log_arr:
                     log_file_writer.write(string+'\n')
                 log_arr = []
@@ -1063,6 +1086,16 @@ def train_model_recon(out_dir_train,
     for string in log_arr:
         log_file_writer.write(string+'\n')
     log_arr = []
+
+    for idx_loss in range(len(plot_arr)):
+        plot_curr = plot_arr[idx_loss]
+        # lent = len(plot_curr[0])
+        # print len(plot_curr[0]),len(plot_curr),
+        # print plot_curr[0][10]
+        last_iter = plot_curr[0][-1]
+        plot_curr[0] = plot_curr[0][:(len(plot_curr)-plot_after)]+[last_iter]
+        plot_curr[1] = plot_curr[1][:(len(plot_curr)-plot_after)]+[np.mean(plot_curr[1][len(plot_curr)-plot_after:])]
+        plot_arr[idx_loss]=plot_curr
 
     if len(plot_val_arr[0])==0:
         visualize.plotSimple([(plot_arr[0],plot_arr[1])],out_file = plot_file,title = 'Loss',xlabel = 'Iteration',ylabel = 'Loss',legend_entries=['Train'])

@@ -898,16 +898,65 @@ def script_save_256_im():
         out_file_curr = im_file_curr.replace(str_replace_out_files[0],str_replace_out_files[1])
         out_dir_curr = os.path.split(out_file_curr)[0]
         util.makedirs(out_dir_curr)
-        if os.path.exists(out_file_curr):
-            continue
+        # if os.path.exists(out_file_curr):
+        #     continue
         args.append((im_file_curr,out_file_curr,im_size,idx_file_curr))
 
     print len(im_files_all)
     print len(args)
-    # for arg in args:
-    #     print arg
-    #     raw_input()
+    for arg in args:
+        print 'ARG',arg
+        raw_input()
     #     save_resize_im(arg)
+    #     break
+
+    # pool = multiprocessing.Pool(multiprocessing.cpu_count())
+    # pool.map(save_resize_im, args)
+
+
+
+
+# ../data/disfa/preprocess_im_256_color_align/LeftVideoSN031_comp/LeftVideoSN031_comp_03474.jpg
+
+def script_save_110_im_color():
+    dir_meta = '../data/disfa'
+    out_dir_train_test = os.path.join(dir_meta,'train_test_8_au_all_method_256_color_align')
+
+    im_size = [110,110]
+    out_dir_im = os.path.join(dir_meta,'preprocess_im_110_color_align')
+
+    num_folds = 3
+    im_files_all = []
+    for fold_curr in range(num_folds):
+        for file_pre in ['train','test']:
+            file_curr = os.path.join(out_dir_train_test,file_pre+'_'+str(fold_curr)+'.txt')
+            print file_curr,len(util.readLinesFromFile(file_curr))
+
+            im_files = [line_curr.split(' ')[0] for line_curr in util.readLinesFromFile(file_curr)]
+            im_files_all.extend(im_files)
+
+    print len(im_files_all),len(list(set(im_files_all)))
+    im_files_all = list(set(im_files_all))
+    str_replace_in_files = [os.path.join(dir_meta,'preprocess_im_110_color_align'),os.path.join(dir_meta,'preprocess_im_256_color_align')]
+    im_files_all = [file_curr.replace(str_replace_in_files[0],str_replace_in_files[1]) for file_curr in im_files_all]
+
+    str_replace_out_files = [str_replace_in_files[1],out_dir_im]
+    args =[]
+    for idx_file_curr, im_file_curr in enumerate(im_files_all):
+        out_file_curr = im_file_curr.replace(str_replace_out_files[0],str_replace_out_files[1])
+        out_dir_curr = os.path.split(out_file_curr)[0]
+        util.makedirs(out_dir_curr)
+        # if os.path.exists(out_file_curr):
+        #     continue
+        args.append((im_file_curr,out_file_curr,im_size,idx_file_curr))
+
+    # print len(im_files_all)
+    # print len(args)
+    # for arg in args:
+    #     print 'ARG',arg
+        
+    #     save_resize_im(arg)
+    #     raw_input()
     #     break
 
     pool = multiprocessing.Pool(multiprocessing.cpu_count())
@@ -915,12 +964,38 @@ def script_save_256_im():
 
 
 
+def just_replace_strings_train_test():
+    dir_meta = '../data/disfa'
+    old_out_dir_train_test = os.path.join(dir_meta, 'train_test_8_au_all_method_256_color_align')
+    new_out_dir_train_test = os.path.join(dir_meta, 'train_test_8_au_all_method_110_color_align')
 
+    file_names = [file_pre+'_'+str(file_post)+'.txt' for file_pre in ['train','test'] for file_post in range(3)]
+    
+    old_im_dir = os.path.join(dir_meta,'preprocess_im_256_color_align')
+    new_im_dir = os.path.join(dir_meta,'preprocess_im_110_color_align')
+    
+    util.mkdir(new_out_dir_train_test)
+    
+    for file_name in file_names:
+        in_file = os.path.join(old_out_dir_train_test,file_name)
+        out_file = os.path.join(new_out_dir_train_test,file_name)
+        lines = util.readLinesFromFile(in_file)
+        lines = [line.replace(old_im_dir, new_im_dir) for line in lines]
+        for line in lines:
+            im = line.split(' ')[0]
+            assert os.path.exists(im)
+            
+        print out_file, os.path.exists(out_file), lines[0], len(lines)
+        # raw_input()
+        util.writeFile(out_file, lines)
 
 
 def main():
-    save_train_test_files()
-    # script_save_256_im()
+    just_replace_strings_train_test()
+
+
+    # save_train_test_files()
+    # script_save_110_im_color()
 
 
     # make_disfa_8au_anno_all()

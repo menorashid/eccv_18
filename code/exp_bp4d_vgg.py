@@ -13,7 +13,7 @@ from analysis import getting_accuracy
 import save_visualizations
 
 
-def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False, dropout = None, model_to_test = None, gpu_id = 0):
+def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epoch_stuff=[30,60],res=False, class_weights = False, reconstruct = False, loss_weights = None, exp = False, align = False, disfa = False,more_aug=False, dropout = None, model_to_test = None, gpu_id = 0, test_mode = False):
     out_dirs = []
 
     
@@ -50,10 +50,20 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             binarize = True
             pre_pend = 'disfa_256_'+type_data+'_'
     else:
-        im_resize = 110
-        im_size = 96
-        type_data = 'train_test_files_110_color'; n_classes = 12;
-        pre_pend = 'bp4d_110_'
+        if not disfa:
+            im_resize = 110
+            im_size = 96
+            binarize = False
+            dir_files = '../data/bp4d'
+            type_data = 'train_test_files_110_color_align'; n_classes = 12;
+            pre_pend = 'bp4d_110_'
+        else:
+            im_resize = 110
+            im_size = 96
+            dir_files = '../data/disfa'
+            type_data = 'train_test_8_au_all_method_110_color_align'; n_classes = 8;
+            binarize = True
+            pre_pend = 'disfa_110_'+type_data+'_'
 
     save_after = 1
     criterion = 'marginmulti'
@@ -73,7 +83,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         
         if res:
 
-            strs_append_list_c = ['reconstruct',reconstruct,False,'all_aug',criterion_str,init,'wdecay',wdecay,10]+['step',5,0.1]+lr+[more_aug]+[dropout]
+            strs_append_list_c = ['reconstruct',reconstruct,False,'all_aug',criterion_str,init,'wdecay',wdecay,10]+['step',10,0.1]+lr+[more_aug]+[dropout]
             # print dec_after
             # raw_input()
             if loss_weights is not None:
@@ -83,10 +93,11 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
             out_dir_train = os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append_c)
             
             model_file = os.path.join(out_dir_train,'model_4.pt')
-            epoch_start = 4
-            print 'FILE EXISTS', model_file, epoch_start
+            epoch_start = 5
+            lr = [val *0.1 for val in lr]
+            print 'FILE EXISTS', os.path.exists(model_file), model_file, epoch_start
             
-            # raw_input()
+            raw_input()
             
         else:
             model_file = None    
@@ -97,7 +108,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         out_dir_train =  os.path.join(out_dir_meta,pre_pend+str(split_num)+strs_append)
         final_model_file = os.path.join(out_dir_train,'model_'+str(num_epochs-1)+'.pt')
         # final_model_file = os.path.join(out_dir_train,'results_model_'+str(model_to_test))
-        if os.path.exists(final_model_file):
+        if os.path.exists(final_model_file) and not test_mode:
             print 'skipping',final_model_file
             # raw_input()
             continue 
@@ -110,7 +121,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         test_file = os.path.join(dir_files,type_data,'test_'+str(split_num)+'.txt')
 
         data_transforms = None
-        if model_name.startswith('vgg_capsule_7_3_imagenet'):
+        if model_name.startswith('vgg_capsule_7_3_imagenet') or model_name.startswith('scratch_'):
             # mean_std = np.array([[93.5940,104.7624,129.1863],[1.,1.,1.]]) #bgr
             # std_div = np.array([0.225*255,0.224*255,0.229*255])
             # print std_div
@@ -262,7 +273,7 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
                     num_epochs = num_epochs,
                     save_after = save_after,
                     disp_after = 1,
-                    plot_after = 10,
+                    plot_after = 100,
                     test_after = 1,
                     lr = lr,
                     dec_after = dec_after, 
@@ -299,7 +310,8 @@ def train_vgg(wdecay,lr,route_iter,folds=[4,9],model_name='vgg_capsule_bp4d',epo
         # util.writeFile(param_file,all_lines)
 
         # if reconstruct:
-        train_model_recon(**train_params)
+        if not test_mode:
+            train_model_recon(**train_params)
 
         test_model_recon(**test_params)
 
@@ -768,21 +780,22 @@ def ablation_study_rebuttal_gray():
 def imagenet_experiments():
     wdecay = 0
     route_iter = 3
-    folds =[0,1,2]
-    model_name =  'vgg_capsule_7_3_face_split_base' 
+    folds =[2]
+    model_name =  'vgg_capsule_7_3_imagenet_split_base_do' 
     reconstruct = True
-    loss_weights = [1.,1.]
+    loss_weights = [1.,0.1]
     
-    epoch_stuff = [5,5]
+    epoch_stuff = [10,10]
     exp = False
     model_to_test = None
-
+    test_mode = False
+    res = False
     # epoch_stuff = [10,10]
     # exp = False
 
     align = True
-    more_aug = 'LESS'
-    lr = [0,1e-5,1e-4,1e-4]
+    more_aug = 'MORE'
+    lr = [1e-5,1e-5,1e-4,1e-4]
 
     train_vgg(wdecay= wdecay,
         lr = lr,
@@ -795,7 +808,9 @@ def imagenet_experiments():
         exp = exp ,
         align = align ,
         more_aug=more_aug,
-        model_to_test = model_to_test)
+        model_to_test = model_to_test,
+        test_mode = test_mode,
+        res = res)
 
 def imagenet_vgg_no_ft_resume():
     wdecay = 0
@@ -866,9 +881,10 @@ def imagenet_vgg_ft_resume():
 def face_experiments():
     wdecay = 0
     route_iter = 3
-    folds =[0]
-    model_name =  'vgg_capsule_7_3_face_split_base' 
-    reconstruct = False
+    folds =[2]
+    model_name =  'vgg_capsule_7_3_face_split_base_do_70' 
+    reconstruct = True
+    disfa = False
     loss_weights = [1.,0.1]
     
     epoch_stuff = [5,5]
@@ -876,10 +892,11 @@ def face_experiments():
     model_to_test = None
     # epoch_stuff = [10,10]
     # exp = False
-
+    test_mode = False
     align = True
     more_aug = 'MORE'
     lr = [0,1e-5,1e-4,1e-4]
+    res = False
 
     train_vgg(wdecay= wdecay,
         lr = lr,
@@ -892,19 +909,107 @@ def face_experiments():
         exp = exp ,
         align = align ,
         more_aug=more_aug,
-        model_to_test = model_to_test)
+        model_to_test = model_to_test,
+        test_mode = test_mode,
+        disfa = disfa,
+        res = res
+        )
 
+def scratch_color_experiments():
+    wdecay = 0
+    route_iter = 3
+    folds =[0,1,2]
+    model_name =  'scratch_architecture_capsule_7_3_color' 
+    reconstruct = True
+    loss_weights = [1.,1.]
+    
+    epoch_stuff = [10,10]
+    exp = False
+    model_to_test = None
+    # epoch_stuff = [10,10]
+    # exp = False
+    test_mode = False
+    align = True
+    more_aug = 'LESS'
+    lr = [1e-4,1e-4,1e-4]
 
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        model_to_test = model_to_test,
+        test_mode = test_mode)
 
+def scratch_color_experiment_disfa():
+    wdecay = 0
+    route_iter = 3
+    folds =[2]
+    model_name =  'scratch_architecture_capsule_7_3_color_transfer_conv'
+    disfa = True 
+    reconstruct = True
+    loss_weights = [1.,1.]
+    
+    epoch_stuff = [5,10]
+    res = True
+    exp = False
+    model_to_test = None
+    # epoch_stuff = [10,10]
+    # exp = False
+    test_mode = False
+    align = True
+    more_aug = 'LESS'
+    lr = [1e-4,1e-4,1e-4]
+
+    train_vgg(wdecay= wdecay,
+        lr = lr,
+        route_iter = route_iter,
+        folds=folds,
+        model_name=model_name,
+        epoch_stuff=epoch_stuff,
+        reconstruct = reconstruct ,
+        loss_weights = loss_weights ,
+        exp = exp ,
+        align = align ,
+        more_aug=more_aug,
+        model_to_test = model_to_test,
+        test_mode = test_mode,
+        disfa = disfa,
+        res = res)
+
+def temp_scratch():
+    dir_model = '../experiments/vgg_face_finetune/bp4d_256_train_test_files_256_color_align_0_False_MultiLabelSoftMarginLoss_10_step_5_0.1_0_0.0001_0.001_0.001_False'
+    model_path = os.path.join(dir_model,'model_8.pt')
+
+    dir_model = '../experiments/scratch_architecture_capsule_7_3_color3/bp4d_110_0_reconstruct_True_False_all_aug_marginmulti_False_wdecay_0_10_step_10_0.1_0.0001_0.0001_0.0001_LESS_None_lossweights_1.0_1.0'
+    model_path = os.path.join(dir_model,'model_9.pt')
+
+    model =torch.load(model_path).cpu()
+    out_file = os.path.join(dir_model,'model_9_just_dict.pt')
+    torch.save(model.state_dict(),out_file)
+    print out_file
 
 def main():
-    # imagenet_experiments()
-    face_experiments()
+    # print 'helelei'
+    # scratch_color_experiment_disfa()
+    # temp_scratch()
+    imagenet_experiments()
+    # face_experiments()
     # imagenet_experiments()
     # imagenet_vgg_ft_resume()
     # imagenet_vgg_no_ft_resume()
     # imagenet_experiments()
     # ablation_study_rebuttal_gray()
+
+
+
+
 
     return
 
